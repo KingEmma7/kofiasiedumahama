@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e3a8a;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1d4ed8;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+}
+
+@layer base {
+  /* Typography refinements */
+  body {
+    @apply antialiased;
+  }
+  
+  /* Selection styling */
+  ::selection {
+    @apply bg-primary-900/20 text-primary-900;
+  }
+  
+  .dark ::selection {
+    @apply bg-primary-400/30 text-primary-100;
+  }
+  
+  /* Focus states for accessibility */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary-600;
+  }
+}
+
+@layer components {
+  /* Button styles */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-8 py-4 
+           bg-primary-900 text-white font-semibold rounded-lg
+           hover:bg-primary-800 active:bg-primary-950
+           transition-all duration-300 ease-out
+           hover:shadow-lg hover:shadow-primary-900/25
+           focus:ring-4 focus:ring-primary-900/30
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-8 py-4 
+           border-2 border-primary-900 text-primary-900 font-semibold rounded-lg
+           hover:bg-primary-900 hover:text-white
+           transition-all duration-300 ease-out
+           focus:ring-4 focus:ring-primary-900/30;
+  }
+  
+  .btn-gold {
+    @apply inline-flex items-center justify-center px-8 py-4 
+           bg-gradient-to-r from-gold-500 to-gold-600 text-white font-semibold rounded-lg
+           hover:from-gold-600 hover:to-gold-700
+           transition-all duration-300 ease-out
+           hover:shadow-lg hover:shadow-gold-500/25
+           focus:ring-4 focus:ring-gold-500/30;
+  }
+  
+  /* Dark mode button variants */
+  .dark .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-500;
+  }
+  
+  .dark .btn-secondary {
+    @apply border-primary-400 text-primary-400 hover:bg-primary-400 hover:text-gray-900;
+  }
+  
+  /* Section container */
+  .section-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Section padding */
+  .section-padding {
+    @apply py-20 md:py-28 lg:py-32;
+  }
+  
+  /* Heading styles */
+  .heading-xl {
+    @apply text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-tight;
+  }
+  
+  .heading-lg {
+    @apply text-3xl md:text-4xl lg:text-5xl font-display font-bold leading-tight;
+  }
+  
+  .heading-md {
+    @apply text-2xl md:text-3xl font-display font-semibold;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-lg 
+           border border-gray-100 dark:border-gray-700
+           overflow-hidden transition-all duration-300;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-xl hover:-translate-y-1;
+  }
+  
+  /* Glass effect */
+  .glass {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg;
+  }
+  
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-900 to-primary-600;
+  }
+  
+  .dark .text-gradient {
+    @apply from-primary-400 to-primary-200;
+  }
+  
+  /* Timeline specific styles */
+  .timeline-line {
+    @apply absolute left-6 md:left-1/2 top-0 bottom-0 w-0.5 
+           bg-gradient-to-b from-primary-900 via-primary-600 to-primary-900;
+  }
+  
+  .timeline-dot {
+    @apply absolute left-6 md:left-1/2 w-4 h-4 
+           bg-primary-900 rounded-full border-4 border-white dark:border-gray-900
+           transform -translate-x-1/2 shadow-lg;
+  }
+}
+
+@layer utilities {
+  /* Animation delays */
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-500 { animation-delay: 500ms; }
+  .animation-delay-600 { animation-delay: 600ms; }
+  .animation-delay-700 { animation-delay: 700ms; }
+  .animation-delay-800 { animation-delay: 800ms; }
+  
+  /* Parallax helper */
+  .parallax {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Hide scrollbar but allow scroll */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Ghana flag gradient animation */
+  @keyframes gradient-x {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  
+  .animate-gradient-x {
+    animation: gradient-x 4s ease-in-out infinite;
+  }
+}
+
+/* Paystack modal dark mode support */
+.dark .paystack-overlay {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
