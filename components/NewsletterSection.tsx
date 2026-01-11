@@ -37,24 +37,55 @@ export function NewsletterSection() {
     trackEvent('newsletter_signup', 'engagement', 'dedicated_section');
 
     try {
-      const response = await fetch('/api/newsletter', {
+      // Try API route first (works in development)
+      let apiUrl = '/api/newsletter';
+      
+      // If Google Apps Script URL is set, use it (for static export)
+      const appsScriptUrl = process.env.NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL;
+      if (appsScriptUrl && typeof window !== 'undefined') {
+        // Check if we're in a static build (no API routes available)
+        try {
+          const testResponse = await fetch('/api/newsletter', { method: 'HEAD' });
+          if (!testResponse.ok) {
+            apiUrl = appsScriptUrl;
+          }
+        } catch {
+          // API route not available, use Apps Script
+          apiUrl = appsScriptUrl;
+        }
+      }
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, phone }),
+        ...(apiUrl.includes('script.google.com') && { mode: 'no-cors' as RequestMode }),
       });
 
-      if (response.ok) {
+      // For no-cors requests, we can't read the response
+      if (apiUrl.includes('script.google.com')) {
         setStatus('success');
         setMessage('Thank you! You\'ve been added to our mailing list.');
         setName('');
         setEmail('');
         setPhone('');
+        return;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        setStatus('success');
+        setMessage(data.message || 'Thank you! You\'ve been added to our mailing list.');
+        setName('');
+        setEmail('');
+        setPhone('');
       } else {
-        throw new Error('Subscription failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Subscription failed');
       }
     } catch (error) {
       setStatus('error');
-      setMessage('Something went wrong. Please try again.');
+      setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 

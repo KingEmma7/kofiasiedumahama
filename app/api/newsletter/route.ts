@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { addSubscriptionToSheet, emailExistsInSheet } from '@/lib/googleSheets';
 
-// Force dynamic rendering for this route
-export const dynamic = 'force-dynamic';
+// API routes are dynamic by default, no need to export dynamic
 
 // Newsletter subscription endpoint
-// Integrates with Mailchimp or ConvertKit
+// Integrates with Google Sheets, Mailchimp, or ConvertKit
 
 interface MailchimpResponse {
   id?: string;
@@ -42,7 +42,43 @@ export async function POST(request: NextRequest) {
       subscribedAt: new Date().toISOString(),
     };
 
-    // Option 1: Mailchimp integration
+    // Option 1: Google Sheets integration (Free, no limits)
+    const googleSheetsId = process.env.GOOGLE_SHEETS_ID;
+    const googleSheetsCredentials = process.env.GOOGLE_SHEETS_CREDENTIALS;
+
+    if (googleSheetsId && googleSheetsCredentials) {
+      try {
+        // Check if email already exists
+        const exists = await emailExistsInSheet(subscriptionData.email);
+        
+        if (exists) {
+          return NextResponse.json({
+            success: true,
+            message: 'You\'re already subscribed!',
+          });
+        }
+
+        // Add to Google Sheets
+        await addSubscriptionToSheet(subscriptionData);
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Thank you for subscribing! You\'ve been added to our mailing list.',
+        });
+      } catch (error) {
+        console.error('Google Sheets error:', error);
+        // Fall through to other options or return error
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: 'Subscription failed. Please try again later.' 
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Option 2: Mailchimp integration
     const mailchimpApiKey = process.env.MAILCHIMP_API_KEY;
     const mailchimpListId = process.env.MAILCHIMP_LIST_ID;
     const mailchimpDataCenter = process.env.MAILCHIMP_DC; // e.g., 'us1'
@@ -90,7 +126,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Option 2: ConvertKit integration
+    // Option 3: ConvertKit integration
     const convertKitApiKey = process.env.CONVERTKIT_API_KEY;
     const convertKitFormId = process.env.CONVERTKIT_FORM_ID;
 
@@ -127,20 +163,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fallback: Log subscription data
-    // In production, you should store this in a database
+    // Fallback: Log subscription data if no service is configured
     console.log('Newsletter signup (no service configured):', subscriptionData);
-    
-    // NOTE: For production, implement database storage
-    // Example with Prisma:
-    // await prisma.newsletterSubscription.create({
-    //   data: {
-    //     name: subscriptionData.name,
-    //     email: subscriptionData.email,
-    //     phone: subscriptionData.phone,
-    //     subscribedAt: new Date(subscriptionData.subscribedAt),
-    //   },
-    // });
+    console.warn('⚠️ No newsletter storage service configured. Please set up Google Sheets or another service.');
 
     return NextResponse.json({
       success: true,
@@ -161,9 +186,18 @@ export async function POST(request: NextRequest) {
 /*
  * NEWSLETTER STORAGE OPTIONS:
  * 
- * The API currently supports three methods for storing newsletter subscriptions:
+ * The API supports multiple methods for storing newsletter subscriptions:
  * 
- * 1. MAILCHIMP (Recommended for email marketing)
+ * 1. GOOGLE SHEETS (Recommended - Free, No Limits) ⭐
+ *    - Stores: name, email, phone, subscribedAt timestamp
+ *    - Features: Free, unlimited storage, easy to view/export
+ *    - Setup: See GOOGLE_SHEETS_SETUP.md for detailed instructions
+ *    - Add to .env.local:
+ *      GOOGLE_SHEETS_ID=your_spreadsheet_id
+ *      GOOGLE_SHEETS_NAME=Subscriptions
+ *      GOOGLE_SHEETS_CREDENTIALS='{"type":"service_account",...}'
+ * 
+ * 2. MAILCHIMP (For email marketing)
  *    - Stores: name, email, phone (in merge fields)
  *    - Features: Email campaigns, automation, analytics
  *    - Setup:
@@ -176,7 +210,7 @@ export async function POST(request: NextRequest) {
  *         MAILCHIMP_LIST_ID=your-list-id
  *         MAILCHIMP_DC=us1
  * 
- * 2. CONVERTKIT (Great for creators)
+ * 3. CONVERTKIT (Great for creators)
  *    - Stores: name, email, phone (in custom fields)
  *    - Features: Email sequences, landing pages, subscriber tagging
  *    - Setup:
@@ -187,29 +221,8 @@ export async function POST(request: NextRequest) {
  *         CONVERTKIT_API_KEY=your-api-key
  *         CONVERTKIT_FORM_ID=your-form-id
  * 
- * 3. DATABASE (For full control)
- *    - Recommended: PostgreSQL with Prisma ORM
- *    - Stores: name, email, phone, subscribedAt timestamp
- *    - Setup:
- *      1. Install Prisma: npm install prisma @prisma/client
- *      2. Initialize: npx prisma init
- *      3. Create schema:
- *         model NewsletterSubscription {
- *           id          String   @id @default(cuid())
- *           name        String
- *           email       String   @unique
- *           phone       String?
- *           subscribedAt DateTime @default(now())
- *         }
- *      4. Uncomment the database code in the fallback section above
- * 
- * 4. GOOGLE SHEETS (Simple, no-code option)
- *    - Use Google Sheets API or Zapier/Make.com
- *    - Good for small lists (<1000 subscribers)
- *    - Can integrate via webhook to external service
- * 
  * RECOMMENDATION:
- * For production, use Mailchimp or ConvertKit for email marketing capabilities,
- * plus a database backup for redundancy and analytics.
+ * Start with Google Sheets (free, unlimited) for storing subscriptions.
+ * You can always export the data later to use with email marketing services.
  */
 

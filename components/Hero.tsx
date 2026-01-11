@@ -84,11 +84,11 @@ export function Hero() {
         transition={{ duration: 1, delay: 0.3 }}
       >
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-4 relative">
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-4 relative ">
             <span 
               className="inline-block bg-clip-text text-transparent animate-gradient-x"
               style={{
-                backgroundImage: 'linear-gradient(to left, #CE1126 0%, #FCD116 33%, #006B3F 66%, #CE1126 100%)',
+                backgroundImage: 'linear-gradient(to bottom left, #CE1126 0%, #FCD116 33%, #006B3F 66%, #CE1126 100%)',
                 backgroundSize: '300% 100%',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
