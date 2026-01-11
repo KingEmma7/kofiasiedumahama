@@ -116,10 +116,13 @@ export function AboutSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="mt-8"
+              className="mt-8 flex flex-col sm:flex-row gap-4"
             >
               <a href="#book" className="btn-primary">
                 Discover His Book
+              </a>
+              <a href="/about" className="btn-secondary">
+                Learn More About Kofi
               </a>
             </motion.div>
           </motion.div>

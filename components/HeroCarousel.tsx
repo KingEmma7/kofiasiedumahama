@@ -6,9 +6,9 @@ import Image from 'next/image';
 
 // Hero images for carousel
 const heroImages = [
+  '/images/kofi-suit1.png',
   '/images/kofi-main-pic.jpeg',
   '/images/kofi-smile.jpeg',
-  '/images/kofi-speech3.jpeg',
 ];
 
 interface HeroCarouselProps {

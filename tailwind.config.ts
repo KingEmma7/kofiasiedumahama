@@ -37,6 +37,8 @@ const config: Config = {
           800: '#854d0e',
           900: '#713f12',
         },
+        // Floral white for elegant text
+        floralwhite: '#FFFAF0',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],

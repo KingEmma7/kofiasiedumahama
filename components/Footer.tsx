@@ -84,8 +84,8 @@ const socialLinks = [
 // Footer navigation
 const footerNav = {
   main: [
-    { name: 'About', href: '#timeline' },
-    { name: 'Book', href: '#book' },
+    { name: 'About', href: '/about' },
+    { name: 'Book', href: '/book' },
     { name: 'Buy Now', href: '#payment' },
     { name: 'News', href: '#news' },
   ],

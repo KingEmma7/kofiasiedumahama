@@ -113,28 +113,9 @@ export function BookPreview() {
                 href="/book"
                 className="btn-gold inline-flex items-center gap-3 text-lg group"
               >
-                Learn More
-                <ArrowRightIcon className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <button
-                onClick={() => {
-                  const paymentSection = document.getElementById('payment');
-                  if (paymentSection) {
-                    const offset = 80;
-                    const elementPosition = paymentSection.getBoundingClientRect().top;
-                    const offsetPosition = elementPosition + window.pageYOffset - offset;
-                    window.scrollTo({
-                      top: offsetPosition,
-                      behavior: 'smooth',
-                    });
-                  }
-                }}
-                className="btn-primary inline-flex items-center gap-3 text-lg group"
-                aria-label="Scroll to payment section to buy the book"
-              >
                 Buy Now
                 <ArrowRightIcon className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              </button>
+              </Link>
             </motion.div>
           </div>
         </motion.div>
