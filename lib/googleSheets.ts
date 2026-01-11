@@ -73,8 +73,9 @@ async function getOrCreateSheet(
       (sheet) => sheet.properties?.title === sheetName
     );
 
-    if (existingSheet?.properties?.sheetId !== undefined) {
-      return existingSheet.properties.sheetId;
+    const sheetId = existingSheet?.properties?.sheetId;
+    if (sheetId !== undefined && sheetId !== null && typeof sheetId === 'number') {
+      return sheetId;
     }
 
     // Sheet doesn't exist, create it
@@ -94,7 +95,7 @@ async function getOrCreateSheet(
     });
 
     const newSheetId = addSheetResponse.data.replies?.[0]?.addSheet?.properties?.sheetId;
-    if (newSheetId === undefined) {
+    if (newSheetId === undefined || newSheetId === null || typeof newSheetId !== 'number') {
       throw new Error('Failed to create sheet');
     }
 

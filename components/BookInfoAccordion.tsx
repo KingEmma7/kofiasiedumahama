@@ -7,7 +7,7 @@ import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 interface AccordionItemProps {
   title: string;
-  content: string[];
+  content: readonly string[];
   isOpen: boolean;
   onToggle: () => void;
   index: number;
