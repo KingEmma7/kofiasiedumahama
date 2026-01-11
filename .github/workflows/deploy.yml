@@ -1,12 +1,17 @@
-name: Deploy to Hostinger
+name: Build Check (Disabled - Vercel handles deployment)
+
+# This workflow is DISABLED - Vercel automatically deploys from GitHub
+# To use FTP deployment instead, uncomment the 'push' trigger below
 
 on:
-  push:
-    branches:
-      - main  # Change to 'master' if your main branch is named 'master'
+  workflow_dispatch: # Only runs if manually triggered
+  # Uncomment below to enable FTP deployment on push:
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
-  build-and-deploy:
+  build-check:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,7 +30,6 @@ jobs:
       - name: Build Next.js app
         run: npm run build
         env:
-          # Add any build-time environment variables here
           NEXT_PUBLIC_PAYSTACK_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_KEY }}
           NEXT_PUBLIC_HARDCOPY_PRICE: ${{ secrets.NEXT_PUBLIC_HARDCOPY_PRICE }}
           NEXT_PUBLIC_EBOOK_PRICE: ${{ secrets.NEXT_PUBLIC_EBOOK_PRICE }}
