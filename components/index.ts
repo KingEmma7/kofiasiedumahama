@@ -14,3 +14,4 @@ export { Footer } from './Footer';
 export { ThemeProvider } from './ThemeProvider';
 export { ThemeToggle } from './ThemeToggle';
 export { Analytics, trackEvent } from './Analytics';
+export { BackToTop } from './BackToTop';

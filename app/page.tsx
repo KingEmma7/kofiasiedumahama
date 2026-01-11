@@ -6,6 +6,7 @@ import {
   NewsletterSection,
   SocialMediaSection,
   Footer,
+  BackToTop,
 } from '@/components';
 
 export const metadata: Metadata = {
@@ -113,6 +114,7 @@ export default function Home() {
       <NewsletterSection />
       <SocialMediaSection />
       <Footer />
+      <BackToTop />
     </main>
   );
 }

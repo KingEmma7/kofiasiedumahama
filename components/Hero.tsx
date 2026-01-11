@@ -20,16 +20,37 @@ export function Hero() {
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [0.6, 0.3]);
 
   const scrollToAbout = () => {
-    document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
+    const element = document.getElementById('about');
+    if (element) {
+      const offset = 80;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      });
+    }
     setIsMenuOpen(false);
   };
 
   return (
-    <section
-      ref={containerRef}
-      className="relative min-h-screen flex items-end justify-center overflow-hidden"
-      aria-label="Hero section"
-    >
+    <>
+      {/* Skip to content link for accessibility */}
+      <a
+        href="#about"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-1/2 focus:-translate-x-1/2 focus:z-[100] focus:px-6 focus:py-3 focus:bg-primary-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
+        }}
+      >
+        Skip to main content
+      </a>
+      <section
+        ref={containerRef}
+        className="relative min-h-screen flex items-end justify-center overflow-hidden"
+        aria-label="Hero section"
+      >
       {/* Auto-rotating carousel background */}
       <HeroCarousel 
         scrollYProgress={scrollYProgress}
@@ -84,19 +105,50 @@ export function Hero() {
         transition={{ duration: 1, delay: 0.3 }}
       >
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-4 relative ">
-            <span 
-              className="inline-block bg-clip-text text-transparent animate-gradient-x"
-              style={{
-                backgroundImage: 'linear-gradient(to bottom left, #CE1126 0%, #FCD116 33%, #006B3F 66%, #CE1126 100%)',
-                backgroundSize: '300% 100%',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-              }}
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-4 relative">
+            <motion.span 
+              className="inline-block text-gray-300 dark:text-floralwhite"
+              initial="hidden"
+              animate="visible"
             >
-              Kofi Asiedu-Mahama
-            </span>
+              {'Kofi Asiedu-Mahama'.split('').map((char, index) => (
+                <motion.span
+                  key={index}
+                  className="inline-block text-white dark:text-floralwhite"
+                  style={{
+                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.4))',
+                    textShadow: '0 2px 20px rgba(0,0,0,0.3)',
+                  }}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { 
+                      opacity: 1, 
+                      y: 0,
+                      transition: {
+                        delay: index * 0.03,
+                        duration: 0.5,
+                        ease: [0.4, 0, 0.2, 1]
+                      }
+                    }
+                  }}
+                >
+                  {char === ' ' ? '\u00A0' : char}
+                </motion.span>
+              ))}
+            </motion.span>
+            <motion.div
+              className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-[#CE1126] via-[#FCD116] to-[#006B3F]"
+              initial={{ width: 0 }}
+              animate={{ width: '100%' }}
+              transition={{ 
+                delay: 0.8,
+                duration: 1.2,
+                ease: [0.4, 0, 0.2, 1]
+              }}
+              style={{
+                boxShadow: '0 2px 8px rgba(206, 17, 38, 0.4)',
+              }}
+            />
           </h1>
           <p className="text-xl md:text-2xl lg:text-3xl text-gray-100 dark:text-gray-200 font-light max-w-3xl drop-shadow-lg">
             Author • Thought Leader • Wealth Psychology Expert
@@ -121,5 +173,6 @@ export function Hero() {
         </button>
       </motion.div>
     </section>
+    </>
   );
 }

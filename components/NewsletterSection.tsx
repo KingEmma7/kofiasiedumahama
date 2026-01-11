@@ -154,6 +154,8 @@ export function NewsletterSection() {
                     <input
                       type="text"
                       id="newsletter-name"
+                      name="name"
+                      autoComplete="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
@@ -162,6 +164,7 @@ export function NewsletterSection() {
                                transition-all duration-200"
                       placeholder="Enter your name"
                       required
+                      aria-describedby={status === 'error' && message ? 'newsletter-name-error' : undefined}
                     />
                   </div>
                 </div>
@@ -177,6 +180,8 @@ export function NewsletterSection() {
                     <input
                       type="tel"
                       id="newsletter-phone"
+                      name="phone"
+                      autoComplete="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
@@ -200,6 +205,8 @@ export function NewsletterSection() {
                   <input
                     type="email"
                     id="newsletter-email"
+                    name="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
@@ -208,12 +215,19 @@ export function NewsletterSection() {
                              transition-all duration-200"
                     placeholder="you@example.com"
                     required
+                    aria-describedby={status === 'error' && message ? 'newsletter-email-error' : undefined}
                   />
                 </div>
               </div>
 
               {status === 'error' && message && (
-                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+                <div 
+                  id="newsletter-error"
+                  role="alert"
+                  aria-live="polite"
+                  className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm"
+                >
+                  <strong className="font-semibold">Error: </strong>
                   {message}
                 </div>
               )}

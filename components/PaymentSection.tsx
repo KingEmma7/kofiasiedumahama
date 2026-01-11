@@ -367,6 +367,8 @@ export function PaymentSection() {
                 <input
                   type="text"
                   id="name"
+                  name="name"
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
@@ -375,6 +377,7 @@ export function PaymentSection() {
                            transition-all duration-200"
                   placeholder="Enter your name"
                   required
+                  aria-describedby={paymentState.error ? 'payment-name-error' : undefined}
                 />
               </div>
               <div>
@@ -384,6 +387,8 @@ export function PaymentSection() {
                 <input
                   type="email"
                   id="email"
+                  name="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
@@ -392,13 +397,20 @@ export function PaymentSection() {
                            transition-all duration-200"
                   placeholder="you@example.com"
                   required
+                  aria-describedby={paymentState.error ? 'payment-email-error' : undefined}
                 />
               </div>
             </div>
 
             {/* Error message */}
             {paymentState.error && (
-              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+              <div 
+                id="payment-error"
+                role="alert"
+                aria-live="polite"
+                className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm"
+              >
+                <strong className="font-semibold">Error: </strong>
                 {paymentState.error}
               </div>
             )}

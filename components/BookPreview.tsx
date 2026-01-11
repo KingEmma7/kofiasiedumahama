@@ -107,14 +107,34 @@ export function BookPreview() {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.6 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
             >
               <Link 
                 href="/book"
                 className="btn-gold inline-flex items-center gap-3 text-lg group"
               >
-                Get Your Copy Now
+                Learn More
                 <ArrowRightIcon className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Link>
+              <button
+                onClick={() => {
+                  const paymentSection = document.getElementById('payment');
+                  if (paymentSection) {
+                    const offset = 80;
+                    const elementPosition = paymentSection.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - offset;
+                    window.scrollTo({
+                      top: offsetPosition,
+                      behavior: 'smooth',
+                    });
+                  }
+                }}
+                className="btn-primary inline-flex items-center gap-3 text-lg group"
+                aria-label="Scroll to payment section to buy the book"
+              >
+                Buy Now
+                <ArrowRightIcon className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </button>
             </motion.div>
           </div>
         </motion.div>

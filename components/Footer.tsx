@@ -239,7 +239,7 @@ export function Footer() {
                 alt="Kofi Asiedu-Mahama Logo"
                 width={140}
                 height={70}
-                className="w-auto h-14"
+                className="w-auto h-14 invert"
               />
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed mb-6">
