@@ -13,7 +13,7 @@ export async function submitNewsletter(data: NewsletterData): Promise<{ success:
   // In development or when API routes are available, use the API route
   if (process.env.NODE_ENV === 'development' || typeof window !== 'undefined') {
     try {
-      const response = await fetch('/api/newsletter', {
+      const response = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -23,32 +23,6 @@ export async function submitNewsletter(data: NewsletterData): Promise<{ success:
       return result;
     } catch (error) {
       console.error('Newsletter API error:', error);
-      return {
-        success: false,
-        message: 'Failed to submit. Please try again later.',
-      };
-    }
-  }
-
-  // For static export, use Google Apps Script web app
-  const googleAppsScriptUrl = process.env.NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL;
-  
-  if (googleAppsScriptUrl) {
-    try {
-      const response = await fetch(googleAppsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        mode: 'no-cors', // Google Apps Script doesn't support CORS properly
-      });
-
-      // With no-cors, we can't read the response, so assume success
-      return {
-        success: true,
-        message: 'Thank you for subscribing!',
-      };
-    } catch (error) {
-      console.error('Google Apps Script error:', error);
       return {
         success: false,
         message: 'Failed to submit. Please try again later.',

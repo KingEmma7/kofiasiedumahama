@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import { sendEmail, sendAdminPurchaseNotification } from '@/lib/email';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -95,38 +96,121 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleSuccessfulPayment(data: PaystackWebhookEvent['data']) {
+  const customerEmail = data.customer.email;
+  const amount = data.amount / 100; // Convert from pesewas to GHS
+  
+  // Extract customer details from metadata
+  const customerName = data.metadata?.custom_fields?.find(
+    f => f.variable_name === 'customer_name'
+  )?.value || data.customer.first_name || customerEmail.split('@')[0];
+
+  const customerPhone = data.metadata?.custom_fields?.find(
+    f => f.variable_name === 'phone'
+  )?.value;
+
+  const productValue = data.metadata?.custom_fields?.find(
+    f => f.variable_name === 'product'
+  )?.value || 'eBook';
+  
+  const bookType = productValue.toLowerCase().includes('hardcopy') ? 'hardcopy' : 'ebook';
+  const isEbook = bookType === 'ebook';
+
+  // Parse delivery address if available
+  let deliveryAddress;
+  if (!isEbook) {
+    const addressString = data.metadata?.custom_fields?.find(
+      f => f.variable_name === 'delivery_address'
+    )?.value;
+    
+    if (addressString) {
+      const parts = addressString.split(', ').map(s => s.trim());
+      if (parts.length >= 3) {
+        deliveryAddress = {
+          street: parts[0] || '',
+          city: parts[1] || '',
+          region: parts[2] || '',
+          postalCode: parts[3] || '',
+          country: parts[4] || 'Ghana',
+        };
+      }
+    }
+  }
+
   console.log('Successful payment:', {
     reference: data.reference,
-    email: data.customer.email,
-    amount: data.amount / 100,
+    email: customerEmail,
+    name: customerName,
+    phone: customerPhone,
+    amount,
+    bookType,
+    hasDeliveryAddress: !!deliveryAddress,
   });
 
-  // In production:
+  // Generate download URL for ebooks (if needed)
+  // Note: For webhook, we might not have the download URL, so we'll generate it
+  let downloadUrl;
+  if (isEbook) {
+    const secret = process.env.DOWNLOAD_SECRET || 'fallback-secret-change-me';
+    const expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    const dataString = `${customerEmail}:book:${expires}`;
+    const signature = crypto
+      .createHmac('sha256', secret)
+      .update(dataString)
+      .digest('hex');
+    
+    const params = new URLSearchParams({
+      email: customerEmail,
+      product: 'book',
+      expires: expires.toString(),
+      sig: signature,
+    });
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kofiasiedumahama.com';
+    downloadUrl = `${siteUrl}/api/download?${params.toString()}`;
+  }
+
+  // To avoid double-sending (verify-payment also sends), webhook email sending is OFF by default.
+  // Turn on only if you want webhook to send as a fallback:
+  // RESEND_WEBHOOK_SEND_EMAILS=true
+  if (process.env.RESEND_WEBHOOK_SEND_EMAILS !== 'true') {
+    return;
+  }
+
+  try {
+    const subject = 'Your Book Download';
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+        <h2 style="margin: 0 0 12px;">Thank you for your purchase, ${customerName}.</h2>
+        <p style="margin: 0 0 12px;">Reference: <strong>${data.reference}</strong></p>
+        ${downloadUrl ? `<p><a href="${downloadUrl}">Download your book</a></p>` : ''}
+      </div>
+    `;
+    await sendEmail({ to: customerEmail, subject, html });
+  } catch (emailError) {
+    console.error('[Webhook] Resend customer email failed:', emailError);
+  }
+
+  try {
+    const adminHtml = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+        <h2 style="margin:0 0 12px;">New book purchase (webhook)</h2>
+        <p style="margin:0;"><strong>Reference:</strong> ${data.reference}</p>
+        <p style="margin:0;"><strong>Name:</strong> ${customerName}</p>
+        <p style="margin:0;"><strong>Email:</strong> ${customerEmail}</p>
+        ${customerPhone ? `<p style="margin:0;"><strong>Phone:</strong> ${customerPhone}</p>` : ''}
+        ${deliveryAddress ? `<p style="margin:12px 0 0;"><strong>Delivery:</strong> ${deliveryAddress.street}, ${deliveryAddress.city}, ${deliveryAddress.region}</p>` : ''}
+      </div>
+    `;
+    await sendAdminPurchaseNotification({
+      subject: `New Purchase (Webhook) - ${customerName} (${data.reference})`,
+      html: adminHtml,
+    });
+  } catch (emailError) {
+    console.error('[Webhook] Resend admin email failed:', emailError);
+  }
+
+  // In production, you would also:
   // 1. Store payment in database
-  // await db.payments.create({
-  //   reference: data.reference,
-  //   email: data.customer.email,
-  //   amount: data.amount,
-  //   status: 'success',
-  //   createdAt: new Date(),
-  // });
-
-  // 2. Send confirmation email with download link
-  // const downloadUrl = generateSignedDownloadUrl(data.customer.email, 'book');
-  // await sendEmail({
-  //   to: data.customer.email,
-  //   subject: 'Your Book Download Link',
-  //   template: 'purchase-confirmation',
-  //   data: { downloadUrl, name: data.customer.first_name },
-  // });
-
-  // 3. Track affiliate if applicable
-  // const affiliateId = data.metadata?.custom_fields?.find(
-  //   f => f.variable_name === 'affiliate_id'
-  // )?.value;
-  // if (affiliateId) {
-  //   await trackAffiliateConversion(affiliateId, data.amount);
-  // }
+  // 2. Track affiliate if applicable
 }
 
 async function handleFailedPayment(data: PaystackWebhookEvent['data']) {

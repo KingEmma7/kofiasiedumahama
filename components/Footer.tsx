@@ -86,7 +86,7 @@ const footerNav = {
   main: [
     { name: 'About', href: '/about' },
     { name: 'Book', href: '/book' },
-    { name: 'Buy Now', href: '#payment' },
+    { name: 'Buy Now', href: '/book#payment' },
     { name: 'News', href: '#news' },
   ],
   legal: [
@@ -98,6 +98,7 @@ const footerNav = {
 
 function NewsletterForm() {
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
@@ -110,35 +111,25 @@ function NewsletterForm() {
     trackEvent('newsletter_signup', 'engagement', 'footer');
 
     try {
-      // Option 1: Direct Mailchimp embed form submission
-      // Replace with your Mailchimp form action URL
-      const mailchimpUrl = process.env.NEXT_PUBLIC_MAILCHIMP_URL;
-      
-      if (mailchimpUrl) {
-        // For Mailchimp, you'd typically use a hidden iframe or their API
-        // This is a simplified example - in production, use their API
-        const response = await fetch('/api/newsletter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, phone }),
+      });
 
-        if (response.ok) {
-          setStatus('success');
-          setMessage('Thank you! Check your email to confirm your subscription.');
-          setEmail('');
-        } else {
-          throw new Error('Subscription failed');
-        }
-      } else {
-        // Fallback: Just show success for demo
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success) {
         setStatus('success');
-        setMessage('Thank you! You\'ve been added to the list.');
+        setMessage(data.message || 'Thank you! You have been subscribed successfully.');
         setEmail('');
+        setPhone('');
+      } else {
+        throw new Error(data.message || 'Subscription failed');
       }
     } catch (error) {
       setStatus('error');
-      setMessage('Something went wrong. Please try again.');
+      setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     }
   };
 
@@ -152,14 +143,15 @@ function NewsletterForm() {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        <div className="space-y-2">
+          <div className="relative">
             <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              autoComplete="email"
               className="w-full pl-10 pr-4 py-3 rounded-lg bg-gray-800 border border-gray-700 
                        text-white placeholder-gray-400
                        focus:ring-2 focus:ring-primary-500 focus:border-transparent
@@ -167,13 +159,28 @@ function NewsletterForm() {
               required
             />
           </div>
+
+          <div className="relative">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone (optional)"
+              autoComplete="tel"
+              className="w-full px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 
+                       text-white placeholder-gray-400
+                       focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                       transition-all duration-200"
+            />
+          </div>
+
           <button
             type="submit"
             disabled={status === 'loading'}
-            className="px-6 py-3 bg-primary-600 text-white rounded-lg font-medium
+            className="w-full px-6 py-3 bg-primary-600 text-white rounded-lg font-medium
                      hover:bg-primary-500 transition-colors duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed
-                     flex items-center gap-2"
+                     flex items-center justify-center gap-2"
           >
             {status === 'loading' ? (
               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -195,6 +202,7 @@ function NewsletterForm() {
             ) : (
               <ArrowRightIcon className="w-5 h-5" />
             )}
+            Subscribe
           </button>
         </div>
 
@@ -326,6 +334,7 @@ export function Footer() {
       <div className="bg-gray-950 py-3 text-center">
         <p className="text-xs text-gray-600">
           By using this site, you agree to our use of cookies for analytics and functionality.
+          {' '}
           <a href="/cookies" className="text-gray-500 hover:text-gray-400 ml-1 underline">
             Learn more
           </a>

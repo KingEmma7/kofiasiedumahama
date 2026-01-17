@@ -26,10 +26,26 @@ interface PaymentState {
   reference: string | null;
 }
 
+interface DeliveryAddress {
+  street: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
+}
+
 export function PaymentSection() {
   const [bookType, setBookType] = useState<'ebook' | 'hardcopy'>('hardcopy');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>({
+    street: '',
+    city: '',
+    region: '',
+    postalCode: '',
+    country: 'Ghana',
+  });
   const [paymentState, setPaymentState] = useState<PaymentState>({
     loading: false,
     success: false,
@@ -50,6 +66,18 @@ export function PaymentSection() {
     if (!email || !name) {
       setPaymentState(prev => ({ ...prev, error: 'Please enter your name and email' }));
       return;
+    }
+
+    // Validate hardcopy delivery details
+    if (bookType === 'hardcopy') {
+      if (!phone) {
+        setPaymentState(prev => ({ ...prev, error: 'Phone number is required for hardcopy delivery' }));
+        return;
+      }
+      if (!deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.region) {
+        setPaymentState(prev => ({ ...prev, error: 'Please complete all delivery address fields' }));
+        return;
+      }
     }
 
     // Track payment initiation
@@ -79,6 +107,16 @@ export function PaymentSection() {
               variable_name: 'product',
               value: bookType === 'hardcopy' ? 'Hardcopy Book' : 'eBook',
             },
+            ...(phone ? [{
+              display_name: 'Phone',
+              variable_name: 'phone',
+              value: phone,
+            }] : []),
+            ...(bookType === 'hardcopy' ? [{
+              display_name: 'Delivery Address',
+              variable_name: 'delivery_address',
+              value: `${deliveryAddress.street}, ${deliveryAddress.city}, ${deliveryAddress.region}, ${deliveryAddress.postalCode}, ${deliveryAddress.country}`,
+            }] : []),
           ],
         },
         onSuccess: (transaction: { reference: string }) => {
@@ -91,7 +129,10 @@ export function PaymentSection() {
                 body: JSON.stringify({
                   reference: transaction.reference,
                   email,
+                  name,
+                  phone: phone || undefined,
                   bookType,
+                  deliveryAddress: bookType === 'hardcopy' ? deliveryAddress : undefined,
                 }),
               });
 
@@ -137,7 +178,7 @@ export function PaymentSection() {
         error: 'Failed to initialize payment. Please try again.',
       }));
     }
-  }, [email, name, bookType, totalPrice]);
+  }, [email, name, phone, bookType, totalPrice, deliveryAddress]);
 
   // Success state
   if (paymentState.success) {
@@ -160,11 +201,11 @@ export function PaymentSection() {
                 Thank You for Your Purchase!
               </h2>
               <p className="text-gray-600 dark:text-gray-300 mb-8">
-                Your payment was successful. 
+                Your payment was successful! 
                 {bookType === 'ebook' ? (
-                  <> Click below to download your book. A confirmation email has been sent to <strong>{email}</strong>.</>
+                  <> A confirmation email with your download link has been sent to <strong>{email}</strong>. You can also click below to download immediately.</>
                 ) : (
-                  <> We will contact you shortly at <strong>{email}</strong> to arrange delivery of your hardcopy book.</>
+                  <> A confirmation email has been sent to <strong>{email}</strong>. We will contact you shortly at <strong>{phone || email}</strong> to arrange delivery of your hardcopy book to the address you provided.</>
                 )}
               </p>
               {bookType === 'ebook' && paymentState.downloadUrl && (
@@ -362,7 +403,7 @@ export function PaymentSection() {
             <div className="space-y-4 mb-6">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Full Name
+                  Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -382,7 +423,7 @@ export function PaymentSection() {
               </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email Address
+                  Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
@@ -400,6 +441,129 @@ export function PaymentSection() {
                   aria-describedby={paymentState.error ? 'payment-email-error' : undefined}
                 />
               </div>
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Phone Number {bookType === 'hardcopy' && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                           bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                           focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                           transition-all duration-200"
+                  placeholder="+233 XX XXX XXXX"
+                  required={bookType === 'hardcopy'}
+                />
+              </div>
+
+              {/* Delivery Address - Only for hardcopy */}
+              {bookType === 'hardcopy' && (
+                <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Delivery Address</h4>
+                  <div>
+                    <label htmlFor="street" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Street Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="street"
+                      name="street"
+                      autoComplete="street-address"
+                      value={deliveryAddress.street}
+                      onChange={(e) => setDeliveryAddress(prev => ({ ...prev, street: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                               bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                               focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                               transition-all duration-200"
+                      placeholder="House number and street name"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="city"
+                        name="city"
+                        autoComplete="address-level2"
+                        value={deliveryAddress.city}
+                        onChange={(e) => setDeliveryAddress(prev => ({ ...prev, city: e.target.value }))}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                                 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                                 focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                 transition-all duration-200"
+                        placeholder="City"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="region" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Region/State <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="region"
+                        name="region"
+                        autoComplete="address-level1"
+                        value={deliveryAddress.region}
+                        onChange={(e) => setDeliveryAddress(prev => ({ ...prev, region: e.target.value }))}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                                 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                                 focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                 transition-all duration-200"
+                        placeholder="Region"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Postal Code
+                      </label>
+                      <input
+                        type="text"
+                        id="postalCode"
+                        name="postalCode"
+                        autoComplete="postal-code"
+                        value={deliveryAddress.postalCode}
+                        onChange={(e) => setDeliveryAddress(prev => ({ ...prev, postalCode: e.target.value }))}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                                 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                                 focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                 transition-all duration-200"
+                        placeholder="Postal code"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="country" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Country
+                      </label>
+                      <input
+                        type="text"
+                        id="country"
+                        name="country"
+                        autoComplete="country"
+                        value={deliveryAddress.country}
+                        onChange={(e) => setDeliveryAddress(prev => ({ ...prev, country: e.target.value }))}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                                 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                                 focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                 transition-all duration-200"
+                        placeholder="Country"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Error message */}
@@ -436,7 +600,7 @@ export function PaymentSection() {
             {/* Pay button */}
             <button
               onClick={handlePayment}
-              disabled={paymentState.loading || !email || !name}
+              disabled={paymentState.loading || !email || !name || (bookType === 'hardcopy' && (!phone || !deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.region))}
               className="w-full btn-primary text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {paymentState.loading ? (
