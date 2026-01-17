@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Brevo subscribe error:', error);
     
+    // Initialize error message and status
+    let errorMessage = 'Subscription failed. Please try again later.';
+    let statusCode = 500;
+    
     // Log detailed error information
     if (error instanceof Error) {
       console.error('Error name:', error.name);
@@ -93,20 +97,18 @@ export async function POST(request: NextRequest) {
           statusCode = 400;
         }
       }
-    }
-    
-    // Determine error message and status
-    let errorMessage = 'Subscription failed. Please try again later.';
-    let statusCode = 500;
-    
-    if (error instanceof Error) {
+      
+      // Check for other specific error types
       if (error.message.includes('BREVO_API_KEY')) {
         errorMessage = 'Email service is not configured. Please contact support.';
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         errorMessage = 'Invalid API credentials. Please contact support.';
       } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
-        errorMessage = 'Invalid contact data. Please check your information.';
-        statusCode = 400;
+        // Only override if we haven't already set a specific message
+        if (errorMessage === 'Subscription failed. Please try again later.') {
+          errorMessage = 'Invalid contact data. Please check your information.';
+          statusCode = 400;
+        }
       }
     }
     
