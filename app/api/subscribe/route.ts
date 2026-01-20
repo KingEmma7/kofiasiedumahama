@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertSubscriber, getBrevoListIds } from '@/lib/brevo';
+import { addSubscriptionToSheet } from '@/lib/googleSheets';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,13 +62,50 @@ export async function POST(request: NextRequest) {
 
     console.log('Attempting to subscribe:', { email, hasName: !!name, hasPhone: !!phone, listIds });
 
-    await upsertSubscriber({
-      email,
-      name,
-      phone,
-      listIds,
-    });
+    // Save to both Brevo and Google Sheets in parallel
+    // Failures in one should not block the other
+    const results = await Promise.allSettled([
+      // Save to Brevo
+      upsertSubscriber({
+        email,
+        name,
+        phone,
+        listIds,
+      }),
+      // Save to Google Sheets (if configured)
+      process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SHEETS_CREDENTIALS
+        ? addSubscriptionToSheet({
+            name: name || email.split('@')[0],
+            email,
+            phone: phone || null,
+            subscribedAt: new Date().toISOString(),
+          })
+        : Promise.resolve(),
+    ]);
 
+    // Check results
+    const brevoResult = results[0];
+    const sheetsResult = results[1];
+
+    // Log results
+    if (brevoResult.status === 'rejected') {
+      console.error('Brevo subscription failed:', brevoResult.reason);
+    } else {
+      console.log('Brevo subscription succeeded');
+    }
+
+    if (sheetsResult.status === 'rejected') {
+      console.error('Google Sheets subscription failed:', sheetsResult.reason);
+    } else if (process.env.GOOGLE_SHEETS_ID) {
+      console.log('Google Sheets subscription succeeded');
+    }
+
+    // If both failed, return error
+    if (brevoResult.status === 'rejected' && (sheetsResult.status === 'rejected' || !process.env.GOOGLE_SHEETS_ID)) {
+      throw brevoResult.reason; // Throw the Brevo error to be caught by outer catch
+    }
+
+    // If at least one succeeded, return success
     return NextResponse.json({
       success: true,
       message: 'Thank you! You have been subscribed successfully.',

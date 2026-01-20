@@ -32,16 +32,17 @@ export async function upsertSubscriber(params: UpsertSubscriberParams): Promise<
   const client = getBrevoClient();
 
   // Build attributes object
-  // Brevo requires uppercase attribute names (FNAME, LNAME, SMS)
+  // Brevo default attributes: FIRSTNAME, LASTNAME, SMS
+  // These are built-in and always available
   const attributes: Record<string, string> = {};
   if (name) {
-    // Brevo uses FNAME and LNAME (not FIRSTNAME/LASTNAME)
+    // Brevo uses FIRSTNAME and LASTNAME as default attributes
     const nameParts = name.trim().split(/\s+/);
     if (nameParts.length > 1) {
-      attributes.FNAME = nameParts[0];
-      attributes.LNAME = nameParts.slice(1).join(' ');
+      attributes.FIRSTNAME = nameParts[0];
+      attributes.LASTNAME = nameParts.slice(1).join(' ');
     } else {
-      attributes.FNAME = name;
+      attributes.FIRSTNAME = name;
     }
   }
   if (phone) {
@@ -81,6 +82,14 @@ export async function upsertSubscriber(params: UpsertSubscriberParams): Promise<
   // Set updateEnabled to true to update existing contacts
   createContact.updateEnabled = true;
 
+  // Log what we're sending to Brevo for debugging
+  console.log('Brevo createContact payload:', {
+    email: createContact.email,
+    attributes: createContact.attributes,
+    listIds: createContact.listIds,
+    updateEnabled: createContact.updateEnabled,
+  });
+
   try {
     await client.createContact(createContact);
   } catch (error: any) {
@@ -108,6 +117,13 @@ export async function upsertSubscriber(params: UpsertSubscriberParams): Promise<
         if (listIds.length > 0) {
           updateContact.listIds = listIds;
         }
+        
+        console.log('Brevo updateContact payload:', {
+          email: email.toLowerCase().trim(),
+          attributes: updateContact.attributes,
+          listIds: updateContact.listIds,
+        });
+        
         await client.updateContact(email.toLowerCase().trim(), updateContact);
         return; // Successfully updated
       } catch (updateError: any) {
