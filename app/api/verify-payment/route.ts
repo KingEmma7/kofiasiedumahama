@@ -298,7 +298,7 @@ export async function POST(request: NextRequest) {
 
     // Send customer transactional email via Resend
     try {
-      const subject = 'Your Book Download';
+      const subject = 'Your Copy of "The Psychology of Sustainable Wealth"';
       const customerHtml = buildCustomerEmailHtml({
         customerName,
         reference,

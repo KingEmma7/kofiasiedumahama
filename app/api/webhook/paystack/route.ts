@@ -176,12 +176,13 @@ async function handleSuccessfulPayment(data: PaystackWebhookEvent['data']) {
   }
 
   try {
-    const subject = 'Your Book Download';
+    const subject = 'Your Copy of "The Psychology of Sustainable Wealth"';
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
         <h2 style="margin: 0 0 12px;">Thank you for your purchase, ${customerName}.</h2>
+        <p style="margin: 0 0 12px;">Your copy of <strong>"The Psychology of Sustainable Wealth - The Ghanaian Perspective"</strong> is ready!</p>
         <p style="margin: 0 0 12px;">Reference: <strong>${data.reference}</strong></p>
-        ${downloadUrl ? `<p><a href="${downloadUrl}">Download your book</a></p>` : ''}
+        ${downloadUrl ? `<p><a href="${downloadUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;">Download your book</a></p><p style="color:#6b7280;font-size:12px;">This link expires in 24 hours.</p>` : ''}
       </div>
     `;
     await sendEmail({ to: customerEmail, subject, html });

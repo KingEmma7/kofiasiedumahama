@@ -86,8 +86,8 @@ const footerNav = {
   main: [
     { name: 'About', href: '/about' },
     { name: 'Book', href: '/book' },
+    { name: 'Research', href: '/research' },
     { name: 'Buy Now', href: '/book#payment' },
-    { name: 'News', href: '#news' },
   ],
   legal: [
     { name: 'Privacy Policy', href: '/privacy' },

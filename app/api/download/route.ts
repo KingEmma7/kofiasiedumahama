@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { readFile } from 'fs/promises';
-import path from 'path';
+import crypto from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if link has expired
-    const expirationTime = parseInt(expires, 10);
-    if (isNaN(expirationTime) || Date.now() > expirationTime) {
+    const expirationTime = Number.parseInt(expires, 10);
+    if (Number.isNaN(expirationTime) || Date.now() > expirationTime) {
       return NextResponse.json(
         { error: 'Download link has expired. Please contact support for a new link.' },
         { status: 410 }
@@ -64,18 +64,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Determine which file to serve
-    // For production, use S3 or similar cloud storage
+    // Files are stored in /private/books/ - NOT accessible via public URL
     let fileName: string;
-    let contentDisposition: string;
+    let displayName: string;
 
     switch (product) {
       case 'book':
-        fileName = 'book.pdf';
-        contentDisposition = 'attachment; filename="The-Path-to-Purpose.pdf"';
+        fileName = 'The Psychology of Sustainable Wealth - The Ghanaian Perspective.pdf';
+        displayName = 'The-Psychology-of-Sustainable-Wealth.pdf';
         break;
       case 'bundle':
-        fileName = 'book.pdf'; // Could be a zip file with all bundle contents
-        contentDisposition = 'attachment; filename="The-Path-to-Purpose-Bundle.pdf"';
+        fileName = 'The Psychology of Sustainable Wealth - The Ghanaian Perspective.pdf';
+        displayName = 'The-Psychology-of-Sustainable-Wealth-Bundle.pdf';
         break;
       default:
         return NextResponse.json(
@@ -84,9 +84,10 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    // Read file from public directory
-    // SECURITY NOTE: In production, store files outside public/ and use S3
-    const filePath = path.join(process.cwd(), 'public', fileName);
+    // Read file from PRIVATE directory (not publicly accessible)
+    // SECURITY: Files in /private/ cannot be accessed directly via URL
+    const filePath = path.join(process.cwd(), 'private', 'books', fileName);
+    const contentDisposition = `attachment; filename="${displayName}"`;
 
     try {
       const fileBuffer = await readFile(filePath);
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
         },
       });
     } catch (fileError) {
-      console.error('File not found:', filePath);
+      console.error('File read error:', filePath, fileError instanceof Error ? fileError.message : fileError);
       return NextResponse.json(
         { error: 'File not found. Please contact support.' },
         { status: 404 }

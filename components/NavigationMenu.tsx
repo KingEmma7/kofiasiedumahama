@@ -13,6 +13,7 @@ interface NavigationMenuProps {
 const navigationLinks = [
   { name: 'About', href: '/about', id: 'about', isAnchor: false },
   { name: 'The Book', href: '/book', id: 'book', isAnchor: false },
+  { name: 'Research', href: '/research', id: 'research', isAnchor: false },
   { name: 'Newsletter', href: '#newsletter', id: 'newsletter', isAnchor: true },
   { name: 'Connect', href: '#social', id: 'social', isAnchor: true },
 ];
