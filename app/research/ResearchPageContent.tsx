@@ -37,7 +37,8 @@ Central to this analysis is the recognition that while AI presents unprecedented
 
 function PublicationCard({ publication }: { publication: typeof publications[0] }) {
   const handleDownload = () => {
-    trackEvent('research_download', 'engagement', publication.id);
+    // Download is tracked server-side via /api/download-research route
+    // No need to track here to avoid double counting
   };
 
   const handleShare = async () => {
@@ -137,7 +138,7 @@ function PublicationCard({ publication }: { publication: typeof publications[0] 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
           <a
-            href={publication.downloadPath}
+            href={`/api/download-research?id=${publication.id}`}
             download
             onClick={handleDownload}
             className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 

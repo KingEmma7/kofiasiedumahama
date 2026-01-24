@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Analytics } from '@/components/Analytics';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { PageViewTracker } from '@/components/PageViewTracker';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -71,11 +72,14 @@ export const metadata: Metadata = {
     },
   },
   
-  // Icons
+  // Icons - Using logo as favicon
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/images/kofi-logo-transparent.png', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/images/kofi-logo-transparent.png',
+    apple: '/images/kofi-logo-transparent.png',
   },
   
   // Manifest
@@ -142,6 +146,7 @@ export default function RootLayout({
           {children}
         </ThemeProvider>
         <Analytics />
+        <PageViewTracker />
         <SpeedInsights />
       </body>
     </html>

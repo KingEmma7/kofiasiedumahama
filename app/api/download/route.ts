@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { supabaseAdmin } from '@/lib/supabase';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -92,12 +93,33 @@ export async function GET(request: NextRequest) {
     try {
       const fileBuffer = await readFile(filePath);
 
-      // Log download (in production, store in database)
-      console.log('Download:', {
-        email,
+      // Log download with analytics tracking
+      const downloadData = {
+        email: email.substring(0, 3) + '***', // Partial email for privacy
         product,
         timestamp: new Date().toISOString(),
-      });
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        ip: (request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown').split(',')[0].trim(),
+      };
+      
+      console.log('[Download]', JSON.stringify(downloadData));
+      
+      // Save download to database if configured
+      if (supabaseAdmin) {
+        try {
+          await supabaseAdmin
+            .from('downloads')
+            .insert({
+              email,
+              product,
+              user_agent: request.headers.get('user-agent') || null,
+              ip_address: (request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '').split(',')[0].trim() || null,
+            });
+        } catch (dbError) {
+          console.error('Failed to save download to database:', dbError);
+          // Continue anyway - don't fail the download
+        }
+      }
 
       // Return file with appropriate headers
       return new NextResponse(fileBuffer, {

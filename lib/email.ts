@@ -34,6 +34,12 @@ export async function sendEmail(params: {
     return false;
   }
 
+  // Format sender name: "Kofi Asiedu-Mahama" <email@domain.com>
+  const senderName = process.env.RESEND_SENDER_NAME || 'Kofi Asiedu-Mahama';
+  const fromFormatted = fromEmail.includes('<') 
+    ? fromEmail 
+    : `"${senderName}" <${fromEmail}>`;
+
   const toList = Array.isArray(params.to) ? params.to : [params.to];
   // Strip HTML tags to create plain text version
   const text = params.text ?? params.html.replaceAll(/<[^>]*>/g, '');
@@ -43,7 +49,7 @@ export async function sendEmail(params: {
     
     // Resend supports sending to multiple recipients in one call
     const { data, error } = await resend.emails.send({
-      from: fromEmail,
+      from: fromFormatted,
       to: toList,
       subject: params.subject,
       html: params.html,
@@ -72,6 +78,7 @@ export async function sendEmail(params: {
 
 /**
  * Send admin purchase notification emails
+ * Sends to all admins in a single email (BCC) to ensure all receive it
  */
 export async function sendAdminPurchaseNotification(params: {
   subject: string;
@@ -80,15 +87,60 @@ export async function sendAdminPurchaseNotification(params: {
 }): Promise<boolean> {
   const admins = getAdminEmails();
   if (admins.length === 0) return true;
-  const results = await Promise.all(
-    admins.map((to) =>
-      sendEmail({
-        to,
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-      })
-    )
-  );
-  return results.every(Boolean);
+  
+  // Send to all admins in one email using BCC to ensure all receive it
+  // This is more reliable than sending individual emails
+  try {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not set; cannot send admin notification.');
+      return false;
+    }
+
+    const fromEmail = process.env.RESEND_FROM_EMAIL;
+    if (!fromEmail) {
+      console.error('RESEND_FROM_EMAIL is not set; cannot send admin notification.');
+      return false;
+    }
+
+    const senderName = process.env.RESEND_SENDER_NAME || 'Kofi Asiedu-Mahama';
+    const fromFormatted = fromEmail.includes('<') 
+      ? fromEmail 
+      : `"${senderName}" <${fromEmail}>`;
+
+    const text = params.text ?? params.html.replaceAll(/<[^>]*>/g, '');
+    const resend = new Resend(resendApiKey);
+    
+    // Send to first admin as primary recipient, others as BCC
+    const primaryRecipient = admins[0];
+    const bccRecipients = admins.slice(1);
+    
+    const { data, error } = await resend.emails.send({
+      from: fromFormatted,
+      to: primaryRecipient,
+      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+      subject: params.subject,
+      html: params.html,
+      text: text,
+    });
+
+    if (error) {
+      console.error('Resend admin notification error:', error);
+      return false;
+    }
+
+    if (!data) {
+      console.error('Resend returned no data for admin notification');
+      return false;
+    }
+
+    console.log(`Admin notification sent to ${admins.length} admin(s):`, admins);
+    return true;
+  } catch (error) {
+    console.error('Failed to send admin notification:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
+    return false;
+  }
 }

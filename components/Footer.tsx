@@ -97,6 +97,7 @@ const footerNav = {
 };
 
 function NewsletterForm() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -114,7 +115,7 @@ function NewsletterForm() {
       const response = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, phone }),
+        body: JSON.stringify({ name, email, phone }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -122,6 +123,7 @@ function NewsletterForm() {
       if (response.ok && data?.success) {
         setStatus('success');
         setMessage(data.message || 'Thank you! You have been subscribed successfully.');
+        setName('');
         setEmail('');
         setPhone('');
       } else {
@@ -144,6 +146,20 @@ function NewsletterForm() {
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-2">
+          <div className="relative">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              autoComplete="name"
+              className="w-full px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 
+                       text-white placeholder-gray-400
+                       focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                       transition-all duration-200"
+            />
+          </div>
+
           <div className="relative">
             <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input

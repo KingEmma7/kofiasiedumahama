@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { sendEmail, sendAdminPurchaseNotification } from '@/lib/email';
+import { supabaseAdmin } from '@/lib/supabase';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -339,7 +340,7 @@ export async function POST(request: NextRequest) {
       console.error('Resend admin email failed:', emailError);
     }
 
-    // Log successful payment (in production, store in database)
+    // Log successful payment
     console.log('Payment verified:', {
       reference,
       email: customerEmail,
@@ -349,6 +350,28 @@ export async function POST(request: NextRequest) {
       bookType: productType,
       hasDeliveryAddress: !!parsedDeliveryAddress,
     });
+
+    // Save purchase to database if configured
+    if (supabaseAdmin) {
+      try {
+        await supabaseAdmin
+          .from('purchases')
+          .insert({
+            reference,
+            customer_email: customerEmail,
+            customer_name: customerName,
+            customer_phone: customerPhone || null,
+            amount,
+            currency: 'GHS',
+            book_type: productType,
+            delivery_address: parsedDeliveryAddress || null,
+            download_url: fullDownloadUrl || null,
+          });
+      } catch (dbError) {
+        console.error('Failed to save purchase to database:', dbError);
+        // Continue anyway - don't fail the payment verification
+      }
+    }
 
     return NextResponse.json({
       success: true,

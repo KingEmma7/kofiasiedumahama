@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   StarIcon,
   BookOpenIcon,
@@ -194,12 +195,23 @@ export function BookSection() {
               </ul>
             </div>
 
-            <a href="#payment" className="btn-gold inline-flex items-center">
-              Get Your Copy Now
-              <svg className="ml-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </a>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <a href="#payment" className="btn-gold inline-flex items-center justify-center">
+                Get Your Copy Now
+                <svg className="ml-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </a>
+              <Link 
+                href="/research"
+                className="btn-primary inline-flex items-center justify-center"
+              >
+                My Research Papers
+                <svg className="ml-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+            </div>
           </div>
         </motion.div>
 
