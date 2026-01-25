@@ -17,6 +17,46 @@ import Image from 'next/image';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Footer } from '@/components/Footer';
 
+const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const StatCard = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  trend,
+  subtitle 
+}: { 
+  title: string; 
+  value: string | number; 
+  icon: React.ComponentType<{ className?: string }>;
+  trend?: string;
+  subtitle?: string;
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+  >
+    <div className="flex items-center justify-between mb-4">
+      <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+        <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+      </div>
+      {trend && (
+        <span className={`text-sm font-medium ${trend.startsWith('+') ? 'text-green-600' : 'text-gray-500'}`}>
+          {trend}
+        </span>
+      )}
+    </div>
+    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+      {typeof value === 'number' ? value.toLocaleString() : value}
+    </h3>
+    <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+    {subtitle && (
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>
+    )}
+  </motion.div>
+);
+
 interface AnalyticsData {
   pageViews: {
     total: number;
@@ -50,12 +90,17 @@ export function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'day' | 'total'>('day');
+  const [selectedDate, setSelectedDate] = useState(() => formatDate(new Date()));
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const key = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('key') : null;
-      const url = '/api/analytics' + (key ? `?key=${encodeURIComponent(key)}` : '');
+      const key = new URLSearchParams(globalThis.location?.search ?? '').get('key');
+      const params = new URLSearchParams();
+      if (key) params.set('key', key);
+      params.set('date', viewMode === 'total' ? 'total' : selectedDate);
+      const url = '/api/analytics' + (params.toString() ? `?${params.toString()}` : '');
       const response = await fetch(url);
       const result = await response.json();
       if (response.status === 401) {
@@ -80,45 +125,26 @@ export function AnalyticsDashboard() {
 
   useEffect(() => {
     fetchAnalytics();
-  }, []);
+  }, [viewMode, selectedDate]);
 
-  const StatCard = ({ 
-    title, 
-    value, 
-    icon: Icon, 
-    trend,
-    subtitle 
-  }: { 
-    title: string; 
-    value: string | number; 
-    icon: React.ComponentType<{ className?: string }>;
-    trend?: string;
-    subtitle?: string;
-  }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
-          <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-        </div>
-        {trend && (
-          <span className={`text-sm font-medium ${trend.startsWith('+') ? 'text-green-600' : 'text-gray-500'}`}>
-            {trend}
-          </span>
-        )}
-      </div>
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-        {typeof value === 'number' ? value.toLocaleString() : value}
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-      {subtitle && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>
-      )}
-    </motion.div>
-  );
+  const todayString = formatDate(new Date());
+  let viewingLabel = 'All time';
+  if (viewMode !== 'total') {
+    viewingLabel = selectedDate === todayString ? 'Today' : selectedDate;
+  }
+
+  const shiftDate = (days: number) => {
+    const base = new Date(`${selectedDate}T00:00:00`);
+    base.setDate(base.getDate() + days);
+    setSelectedDate(formatDate(base));
+    setViewMode('day');
+  };
+
+  const handleDateChange = (nextDate: string) => {
+    if (!nextDate) return;
+    setSelectedDate(nextDate);
+    setViewMode('day');
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -168,6 +194,56 @@ export function AnalyticsDashboard() {
           <p className="text-gray-600 dark:text-gray-400">
             Track site performance, downloads, purchases, and user engagement
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Viewing:</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{viewingLabel}</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => {
+                  setSelectedDate(todayString);
+                  setViewMode('day');
+                }}
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                  viewMode === 'day' && selectedDate === todayString
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setViewMode('total')}
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                  viewMode === 'total'
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                }`}
+              >
+                Total
+              </button>
+              <button
+                onClick={() => shiftDate(-1)}
+                disabled={viewMode === 'total'}
+                className="px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => handleDateChange(event.target.value)}
+                disabled={viewMode === 'total'}
+                className="px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <button
+                onClick={() => shiftDate(1)}
+                disabled={viewMode === 'total'}
+                className="px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Loading State */}

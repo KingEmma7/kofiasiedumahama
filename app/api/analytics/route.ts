@@ -5,6 +5,20 @@ import { isValidPageViewPath } from '@/lib/validPages';
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 
+const DATE_PARAM_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const normalizeLabel = (label: string | null) =>
+  ((label ?? '') || '/').replace(/\/+$/, '') || '/';
+
+function getDateRange(dateParam: string | null) {
+  if (!dateParam || dateParam === 'total' || dateParam === 'all') return null;
+  if (!DATE_PARAM_REGEX.test(dateParam)) return null;
+  const start = new Date(`${dateParam}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
 /**
  * Analytics event tracking endpoint
  * Tracks custom events server-side for better reliability
@@ -113,29 +127,56 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const url = new URL(request.url);
+    const dateRange = getDateRange(url.searchParams.get('date'));
+
     // Query page views
-    const { data: pageViews, error: pageViewsError } = await supabaseAdmin
+    let pageViewsQuery = supabaseAdmin
       .from('analytics_events')
       .select('label')
       .eq('action', 'page_view');
+    if (dateRange) {
+      pageViewsQuery = pageViewsQuery
+        .gte('created_at', dateRange.start)
+        .lt('created_at', dateRange.end);
+    }
+    const { data: pageViews, error: pageViewsError } = await pageViewsQuery;
 
     // Query downloads from downloads table only
     // NOTE: We only count from downloads table to avoid double counting
     // Research downloads are tracked via /api/download-research which saves to downloads table
-    const { data: downloads, error: downloadsError } = await supabaseAdmin
+    let downloadsQuery = supabaseAdmin
       .from('downloads')
       .select('product, created_at, email')
       .order('created_at', { ascending: false });
+    if (dateRange) {
+      downloadsQuery = downloadsQuery
+        .gte('created_at', dateRange.start)
+        .lt('created_at', dateRange.end);
+    }
+    const { data: downloads, error: downloadsError } = await downloadsQuery;
 
     // Query purchases
-    const { data: purchases, error: purchasesError } = await supabaseAdmin
+    let purchasesQuery = supabaseAdmin
       .from('purchases')
       .select('book_type, amount, created_at');
+    if (dateRange) {
+      purchasesQuery = purchasesQuery
+        .gte('created_at', dateRange.start)
+        .lt('created_at', dateRange.end);
+    }
+    const { data: purchases, error: purchasesError } = await purchasesQuery;
 
     // Query events
-    const { data: events, error: eventsError } = await supabaseAdmin
+    let eventsQuery = supabaseAdmin
       .from('analytics_events')
       .select('action');
+    if (dateRange) {
+      eventsQuery = eventsQuery
+        .gte('created_at', dateRange.start)
+        .lt('created_at', dateRange.end);
+    }
+    const { data: events, error: eventsError } = await eventsQuery;
 
     if (pageViewsError || downloadsError || purchasesError || eventsError) {
       console.error('Database query errors:', { pageViewsError, downloadsError, purchasesError, eventsError });
@@ -147,7 +188,7 @@ export async function GET(request: NextRequest) {
     // Aggregate page views by page
     const pageViewsByPage: Record<string, number> = {};
     filteredPageViews.forEach((event) => {
-      const page = event.label || '/';
+      const page = normalizeLabel(event.label);
       pageViewsByPage[page] = (pageViewsByPage[page] || 0) + 1;
     });
 
