@@ -336,7 +336,7 @@ export default function AboutPage() {
             <blockquote className="text-2xl md:text-3xl text-white/90 leading-relaxed mb-12 italic max-w-3xl mx-auto">
               &ldquo;Lasting wealth is built through disciplined thinking, sound strategy, and intentional execution—grounded in both global principles and local realities.&rdquo;
             </blockquote>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
               <Link
                 href="/book"
                 className="inline-flex items-center gap-3 px-8 py-4 bg-gold-500 hover:bg-gold-600 dark:bg-gold-600 dark:hover:bg-gold-700 text-white rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
@@ -349,6 +349,12 @@ export default function AboutPage() {
                 className="inline-flex items-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-lg font-semibold text-lg transition-all duration-200 border border-white/20"
               >
                 Buy Now
+              </Link>
+              <Link
+                href="/research"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-lg font-semibold text-lg transition-all duration-200 border border-white/20"
+              >
+                My Research Papers
               </Link>
             </div>
           </div>

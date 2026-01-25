@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { isValidPageViewPath } from '@/lib/validPages';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,11 @@ export async function POST(request: NextRequest) {
         { error: 'Action and category are required' },
         { status: 400 }
       );
+    }
+
+    // Only store page_view for real site pages (typos, /analytics, 404s like /analyt are skipped)
+    if (action === 'page_view' && !isValidPageViewPath(typeof label === 'string' ? label : null)) {
+      return NextResponse.json({ success: true, event: { ...body, skipped: true } });
     }
 
     // Get user info from request
@@ -81,11 +87,18 @@ export async function POST(request: NextRequest) {
 
 /**
  * Get analytics summary (for admin dashboard)
- * In production, this would query a database
- * For now, returns mock data structure
+ * When ANALYTICS_SECRET is set, requires ?key=SECRET (same as /analytics page).
  */
 export async function GET(request: NextRequest) {
   try {
+    const secret = process.env.ANALYTICS_SECRET;
+    if (secret) {
+      const url = new URL(request.url);
+      if (url.searchParams.get('key') !== secret) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     if (!supabaseAdmin) {
       // Return empty structure if database not configured
       return NextResponse.json({
@@ -128,14 +141,15 @@ export async function GET(request: NextRequest) {
       console.error('Database query errors:', { pageViewsError, downloadsError, purchasesError, eventsError });
     }
 
+    // Only count page views for real site pages (ignore /analytics, typos like /analyt, 404s)
+    const filteredPageViews = pageViews?.filter((e) => isValidPageViewPath(e.label)) || [];
+
     // Aggregate page views by page
     const pageViewsByPage: Record<string, number> = {};
-    if (pageViews) {
-      pageViews.forEach((event) => {
-        const page = event.label || '/';
-        pageViewsByPage[page] = (pageViewsByPage[page] || 0) + 1;
-      });
-    }
+    filteredPageViews.forEach((event) => {
+      const page = event.label || '/';
+      pageViewsByPage[page] = (pageViewsByPage[page] || 0) + 1;
+    });
 
     // Aggregate downloads by specific product
     // Format: { "The Psychology of Sustainable Wealth": 5, "AI, Job Security...": 3 }
@@ -197,7 +211,7 @@ export async function GET(request: NextRequest) {
 
     const summary = {
       pageViews: {
-        total: pageViews?.length || 0,
+        total: filteredPageViews.length,
         byPage: pageViewsByPage,
       },
       downloads: {

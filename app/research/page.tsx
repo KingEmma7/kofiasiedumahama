@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     title: 'Research & Publications | Kofi Asiedu-Mahama',
     description: 'Explore academic research and thought leadership publications on psychology, economics, and the human condition.',
     type: 'website',
+    images: ['/images/book-cover.jpeg'],
   },
 };
 

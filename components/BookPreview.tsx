@@ -107,20 +107,12 @@ export function BookPreview() {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
             >
               <Link 
                 href="/book"
                 className="btn-gold inline-flex items-center gap-3 text-lg group"
               >
                 Buy Now
-                <ArrowRightIcon className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link 
-                href="/research"
-                className="btn-primary inline-flex items-center gap-3 text-lg group"
-              >
-                My Research Papers
                 <ArrowRightIcon className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Link>
             </motion.div>

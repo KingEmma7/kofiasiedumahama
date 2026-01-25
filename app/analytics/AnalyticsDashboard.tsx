@@ -54,8 +54,16 @@ export function AnalyticsDashboard() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/analytics');
+      const key = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('key') : null;
+      const url = '/api/analytics' + (key ? `?key=${encodeURIComponent(key)}` : '');
+      const response = await fetch(url);
       const result = await response.json();
+      if (response.status === 401) {
+        setError('Unauthorized. Use /analytics?key=YOUR_SECRET');
+        setData(null);
+        setLoading(false);
+        return;
+      }
       
       if (result.success) {
         setData(result.data);
