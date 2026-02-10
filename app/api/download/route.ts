@@ -179,7 +179,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Return file with appropriate headers
-    return new NextResponse(buffer, {
+    // Buffer -> Uint8Array for BodyInit compatibility (Vercel/build TypeScript)
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
