@@ -24,6 +24,7 @@ interface PaymentState {
   error: string | null;
   downloadUrl: string | null;
   reference: string | null;
+  emailSent: boolean;
 }
 
 interface DeliveryAddress {
@@ -35,7 +36,7 @@ interface DeliveryAddress {
 }
 
 export function PaymentSection() {
-  const [bookType, setBookType] = useState<'ebook' | 'hardcopy'>('hardcopy');
+  const [bookType, setBookType] = useState<'ebook' | 'hardcopy' | 'bundle'>('hardcopy');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,6 +53,7 @@ export function PaymentSection() {
     error: null,
     downloadUrl: null,
     reference: null,
+    emailSent: false,
   });
 
   const [ref, inView] = useInView({
@@ -105,7 +107,11 @@ export function PaymentSection() {
             {
               display_name: 'Product',
               variable_name: 'product',
-              value: bookType === 'hardcopy' ? 'Hardcopy Book' : 'eBook',
+              value: (() => {
+                if (bookType === 'hardcopy') return 'Hardcopy Book';
+                if (bookType === 'bundle') return 'Bundle';
+                return 'eBook';
+              })(),
             },
             ...(phone ? [{
               display_name: 'Phone',
@@ -132,6 +138,7 @@ export function PaymentSection() {
                   name,
                   phone: phone || undefined,
                   bookType,
+                  includeBundle: bookType === 'bundle',
                   deliveryAddress: bookType === 'hardcopy' ? deliveryAddress : undefined,
                 }),
               });
@@ -145,6 +152,7 @@ export function PaymentSection() {
                   error: null,
                   downloadUrl: data.downloadUrl,
                   reference: transaction.reference,
+                  emailSent: data.emailSent ?? false,
                 });
                 trackEvent('payment_success', 'ecommerce', bookType, totalPrice);
               } else {
@@ -180,6 +188,21 @@ export function PaymentSection() {
     }
   }, [email, name, phone, bookType, totalPrice, deliveryAddress]);
 
+  // Build success message based on book type and email status
+  function getSuccessMessage(): React.ReactNode {
+    const isEbookOrBundle = bookType === 'ebook' || bookType === 'bundle';
+    if (isEbookOrBundle && paymentState.emailSent) {
+      return <> A confirmation email with your download link has been sent to <strong>{email}</strong>. You can also click below to download immediately.</>;
+    }
+    if (isEbookOrBundle) {
+      return <> You can download your book using the button below.</>;
+    }
+    if (paymentState.emailSent) {
+      return <> A confirmation email has been sent to <strong>{email}</strong>. We will contact you shortly at <strong>{phone || email}</strong> to arrange delivery of your hardcopy book to the address you provided.</>;
+    }
+    return <> We will contact you shortly at <strong>{phone || email}</strong> to arrange delivery of your hardcopy book to the address you provided.</>;
+  }
+
   // Success state
   if (paymentState.success) {
     return (
@@ -200,15 +223,15 @@ export function PaymentSection() {
               <h2 className="heading-md text-gray-900 dark:text-white mb-4">
                 Thank You for Your Purchase!
               </h2>
-              <p className="text-gray-600 dark:text-gray-300 mb-8">
-                Your payment was successful! 
-                {bookType === 'ebook' ? (
-                  <> A confirmation email with your download link has been sent to <strong>{email}</strong>. You can also click below to download immediately.</>
-                ) : (
-                  <> A confirmation email has been sent to <strong>{email}</strong>. We will contact you shortly at <strong>{phone || email}</strong> to arrange delivery of your hardcopy book to the address you provided.</>
-                )}
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Your payment was successful!{getSuccessMessage()}
               </p>
-              {bookType === 'ebook' && paymentState.downloadUrl && (
+              {!paymentState.emailSent && (
+                <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">
+                  Note: We could not send the confirmation email. Please save your reference number and download your book now.
+                </p>
+              )}
+              {(bookType === 'ebook' || bookType === 'bundle') && paymentState.downloadUrl && (
                 <a
                   href={paymentState.downloadUrl}
                   className="btn-primary inline-flex items-center text-lg"

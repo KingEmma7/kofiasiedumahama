@@ -111,9 +111,10 @@ async function handleSuccessfulPayment(data: PaystackWebhookEvent['data']) {
   const productValue = data.metadata?.custom_fields?.find(
     f => f.variable_name === 'product'
   )?.value || 'eBook';
-  
+
   const bookType = productValue.toLowerCase().includes('hardcopy') ? 'hardcopy' : 'ebook';
-  const isEbook = bookType === 'ebook';
+  const isBundle = productValue.toLowerCase().includes('bundle');
+  const isEbook = bookType === 'ebook' || isBundle;
 
   // Parse delivery address if available
   let deliveryAddress;
@@ -146,26 +147,30 @@ async function handleSuccessfulPayment(data: PaystackWebhookEvent['data']) {
     hasDeliveryAddress: !!deliveryAddress,
   });
 
-  // Generate download URL for ebooks (if needed)
-  // Note: For webhook, we might not have the download URL, so we'll generate it
-  let downloadUrl;
+  // Generate download URL for ebooks/bundles (product determines download display name)
+  const downloadProduct = isBundle ? 'bundle' : 'book';
+  let downloadUrl: string | undefined;
   if (isEbook) {
-    const secret = process.env.DOWNLOAD_SECRET || 'fallback-secret-change-me';
-    const expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-    const dataString = `${customerEmail}:book:${expires}`;
-    const signature = crypto
-      .createHmac('sha256', secret)
-      .update(dataString)
-      .digest('hex');
-    
-    const params = new URLSearchParams({
-      email: customerEmail,
-      product: 'book',
-      expires: expires.toString(),
-      sig: signature,
-    });
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kofiasiedumahama.com';
-    downloadUrl = `${siteUrl}/api/download?${params.toString()}`;
+    const downloadSecret = process.env.DOWNLOAD_SECRET;
+    if (downloadSecret) {
+      const expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+      const dataString = `${customerEmail}:${downloadProduct}:${expires}`;
+      const signature = crypto
+        .createHmac('sha256', downloadSecret)
+        .update(dataString)
+        .digest('hex');
+      
+      const params = new URLSearchParams({
+        email: customerEmail,
+        product: downloadProduct,
+        expires: expires.toString(),
+        sig: signature,
+      });
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kofiasiedumahama.com';
+      downloadUrl = `${siteUrl}/api/download?${params.toString()}`;
+    } else {
+      console.error('[Webhook] DOWNLOAD_SECRET not set - cannot generate download URL');
+    }
   }
 
   // To avoid double-sending (verify-payment also sends), webhook email sending is OFF by default.

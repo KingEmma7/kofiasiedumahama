@@ -41,8 +41,13 @@ function generateSignedDownloadUrl(
   email: string,
   product: string,
   expiresIn: number = 24 * 60 * 60 * 1000 // 24 hours
-): string {
-  const secret = process.env.DOWNLOAD_SECRET || 'fallback-secret-change-me';
+): string | null {
+  const secret = process.env.DOWNLOAD_SECRET;
+  if (!secret) {
+    console.error('DOWNLOAD_SECRET is not set - cannot generate download URLs');
+    return null;
+  }
+
   const expires = Date.now() + expiresIn;
   const data = `${email}:${product}:${expires}`;
   
@@ -214,6 +219,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for duplicate payment reference (prevent replay attacks)
+    if (supabaseAdmin) {
+      try {
+        const { data: existing } = await supabaseAdmin
+          .from('purchases')
+          .select('reference')
+          .eq('reference', reference)
+          .maybeSingle();
+
+        if (existing) {
+          console.warn('Duplicate payment verification attempt:', reference);
+          return NextResponse.json(
+            { success: false, message: 'This payment has already been processed' },
+            { status: 409 }
+          );
+        }
+      } catch (dbError) {
+        console.error('Duplicate check failed:', dbError);
+        // Continue - don't block payment on DB errors
+      }
+    }
+
     // Verify payment with Paystack
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     
@@ -297,6 +324,10 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kofiasiedumahama.com';
     const fullDownloadUrl = downloadUrl ? `${siteUrl}${downloadUrl}` : undefined;
 
+    // Track email send status for user feedback
+    let customerEmailSent = false;
+    let adminEmailSent = false;
+
     // Send customer transactional email via Resend
     try {
       const subject = 'Your Copy of "The Psychology of Sustainable Wealth"';
@@ -310,7 +341,7 @@ export async function POST(request: NextRequest) {
         deliveryAddress: parsedDeliveryAddress,
       });
 
-      await sendEmail({
+      customerEmailSent = await sendEmail({
         to: customerEmail,
         subject,
         html: customerHtml,
@@ -332,7 +363,7 @@ export async function POST(request: NextRequest) {
         deliveryAddress: parsedDeliveryAddress,
       });
 
-      await sendAdminPurchaseNotification({
+      adminEmailSent = await sendAdminPurchaseNotification({
         subject: `New Purchase - ${customerName} (${reference})`,
         html: adminHtml,
       });
@@ -349,6 +380,8 @@ export async function POST(request: NextRequest) {
       amount,
       bookType: productType,
       hasDeliveryAddress: !!parsedDeliveryAddress,
+      customerEmailSent,
+      adminEmailSent,
     });
 
     // Save purchase to database if configured
@@ -377,6 +410,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Payment verified successfully',
       downloadUrl,
+      emailSent: customerEmailSent,
     });
   } catch (error) {
     console.error('Payment verification error:', error);
