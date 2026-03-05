@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import {
@@ -17,6 +17,9 @@ import { trackEvent } from './Analytics';
 // Pricing configuration
 const HARDCOPY_PRICE = Number.parseInt(process.env.NEXT_PUBLIC_HARDCOPY_PRICE || '99');
 const EBOOK_PRICE = Number.parseInt(process.env.NEXT_PUBLIC_EBOOK_PRICE || '89');
+const DISCOUNT_PERCENT = 20;
+const DISCOUNT_CODE = (process.env.NEXT_PUBLIC_DISCOUNT_CODE || 'WEALTH20').trim().toUpperCase();
+const MAX_QUANTITY = 20;
 
 interface PaymentState {
   loading: boolean;
@@ -36,7 +39,10 @@ interface DeliveryAddress {
 }
 
 export function PaymentSection() {
-  const [bookType, setBookType] = useState<'ebook' | 'hardcopy' | 'bundle'>('hardcopy');
+  const [bookType, setBookType] = useState<'ebook' | 'hardcopy'>('hardcopy');
+  const [quantity, setQuantity] = useState(1);
+  const [discountInput, setDiscountInput] = useState('');
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -61,12 +67,53 @@ export function PaymentSection() {
     threshold: 0.1,
   });
 
-  const totalPrice = bookType === 'hardcopy' ? HARDCOPY_PRICE : EBOOK_PRICE;
+  const unitPrice = bookType === 'hardcopy' ? HARDCOPY_PRICE : EBOOK_PRICE;
+  const effectiveQuantity = bookType === 'hardcopy' ? quantity : 1;
+  const subtotalPrice = unitPrice * effectiveQuantity;
+  const hasAppliedDiscount = appliedDiscountCode !== null;
+  const discountAmount = hasAppliedDiscount ? Number((subtotalPrice * (DISCOUNT_PERCENT / 100)).toFixed(2)) : 0;
+  const totalPrice = Number((subtotalPrice - discountAmount).toFixed(2));
+  const formatPrice = (value: number) => value.toFixed(2).replace(/\.00$/, '');
+
+  const decrementQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
+  const incrementQuantity = () => setQuantity(prev => Math.min(MAX_QUANTITY, prev + 1));
+
+  useEffect(() => {
+    if (bookType === 'ebook' && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [bookType, quantity]);
+
+  const applyDiscountCode = () => {
+    const normalized = discountInput.trim().toUpperCase();
+    if (!normalized) {
+      setPaymentState(prev => ({ ...prev, error: 'Enter a discount code first.' }));
+      return;
+    }
+    if (normalized !== DISCOUNT_CODE) {
+      setAppliedDiscountCode(null);
+      setPaymentState(prev => ({ ...prev, error: 'Invalid discount code.' }));
+      return;
+    }
+    setAppliedDiscountCode(normalized);
+    setPaymentState(prev => ({ ...prev, error: null }));
+  };
+
+  const removeDiscountCode = () => {
+    setAppliedDiscountCode(null);
+    setDiscountInput('');
+  };
 
   // Handle Paystack payment
   const handlePayment = useCallback(async () => {
     if (!email || !name) {
       setPaymentState(prev => ({ ...prev, error: 'Please enter your name and email' }));
+      return;
+    }
+
+    // Validate quantity
+    if (bookType === 'hardcopy' && (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY)) {
+      setPaymentState(prev => ({ ...prev, error: `Please enter a valid quantity (1-${MAX_QUANTITY})` }));
       return;
     }
 
@@ -95,7 +142,7 @@ export function PaymentSection() {
       paystack.newTransaction({
         key: process.env.NEXT_PUBLIC_PAYSTACK_KEY || '',
         email: email,
-        amount: totalPrice * 100, // Paystack uses kobo/pesewas
+        amount: Math.round(totalPrice * 100), // Paystack uses kobo/pesewas
         currency: 'GHS',
         metadata: {
           custom_fields: [
@@ -107,12 +154,18 @@ export function PaymentSection() {
             {
               display_name: 'Product',
               variable_name: 'product',
-              value: (() => {
-                if (bookType === 'hardcopy') return 'Hardcopy Book';
-                if (bookType === 'bundle') return 'Bundle';
-                return 'eBook';
-              })(),
+              value: bookType === 'hardcopy' ? 'Hardcopy Book' : 'eBook',
             },
+            {
+              display_name: 'Quantity',
+              variable_name: 'quantity',
+              value: String(effectiveQuantity),
+            },
+            ...(appliedDiscountCode ? [{
+              display_name: 'Discount Code',
+              variable_name: 'discount_code',
+              value: appliedDiscountCode,
+            }] : []),
             ...(phone ? [{
               display_name: 'Phone',
               variable_name: 'phone',
@@ -138,7 +191,8 @@ export function PaymentSection() {
                   name,
                   phone: phone || undefined,
                   bookType,
-                  includeBundle: bookType === 'bundle',
+                  quantity: effectiveQuantity,
+                  discountCode: appliedDiscountCode || undefined,
                   deliveryAddress: bookType === 'hardcopy' ? deliveryAddress : undefined,
                 }),
               });
@@ -186,15 +240,14 @@ export function PaymentSection() {
         error: 'Failed to initialize payment. Please try again.',
       }));
     }
-  }, [email, name, phone, bookType, totalPrice, deliveryAddress]);
+  }, [email, name, phone, bookType, totalPrice, quantity, effectiveQuantity, deliveryAddress, appliedDiscountCode]);
 
   // Build success message based on book type and email status
   function getSuccessMessage(): React.ReactNode {
-    const isEbookOrBundle = bookType === 'ebook' || bookType === 'bundle';
-    if (isEbookOrBundle && paymentState.emailSent) {
+    if (bookType === 'ebook' && paymentState.emailSent) {
       return <> A confirmation email with your download link has been sent to <strong>{email}</strong>. You can also click below to download immediately.</>;
     }
-    if (isEbookOrBundle) {
+    if (bookType === 'ebook') {
       return <> You can download your book using the button below.</>;
     }
     if (paymentState.emailSent) {
@@ -228,10 +281,12 @@ export function PaymentSection() {
               </p>
               {!paymentState.emailSent && (
                 <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">
-                  Note: We could not send the confirmation email. Please save your reference number and download your book now.
+                  {bookType === 'ebook'
+                    ? 'Note: We could not send the confirmation email. Please save your reference number and download your book now.'
+                    : 'Note: We could not send the confirmation email. Please save your reference number. Our team will still contact you for hardcopy delivery.'}
                 </p>
               )}
-              {(bookType === 'ebook' || bookType === 'bundle') && paymentState.downloadUrl && (
+              {bookType === 'ebook' && paymentState.downloadUrl && (
                 <a
                   href={paymentState.downloadUrl}
                   className="btn-primary inline-flex items-center text-lg"
@@ -484,6 +539,88 @@ export function PaymentSection() {
                 />
               </div>
 
+              {bookType === 'hardcopy' && (
+                <div>
+                <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Quantity <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={decrementQuantity}
+                    disabled={quantity <= 1}
+                    className="w-11 h-11 rounded-lg border border-gray-300 dark:border-gray-600 text-xl font-semibold text-gray-700 dark:text-gray-200 disabled:opacity-40"
+                    aria-label="Decrease quantity"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    min={1}
+                    max={MAX_QUANTITY}
+                    step={1}
+                    value={quantity}
+                    onChange={(e) => {
+                      const next = Number.parseInt(e.target.value || '1', 10);
+                      if (Number.isNaN(next)) return;
+                      setQuantity(Math.min(MAX_QUANTITY, Math.max(1, next)));
+                    }}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                             bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-center
+                             focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                             transition-all duration-200"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={incrementQuantity}
+                    disabled={quantity >= MAX_QUANTITY}
+                    className="w-11 h-11 rounded-lg border border-gray-300 dark:border-gray-600 text-xl font-semibold text-gray-700 dark:text-gray-200 disabled:opacity-40"
+                    aria-label="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  You can buy up to {MAX_QUANTITY} copies in one payment.
+                </p>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="discountCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Discount Code (optional)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    id="discountCode"
+                    name="discountCode"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                    placeholder="Enter code"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 
+                             bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white
+                             focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                             transition-all duration-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyDiscountCode}
+                    className="px-4 py-3 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 font-medium"
+                  >
+                    Apply
+                  </button>
+                </div>
+                {hasAppliedDiscount && (
+                  <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                    {appliedDiscountCode} applied - {DISCOUNT_PERCENT}% off. <button type="button" onClick={removeDiscountCode} className="underline">Remove</button>
+                  </p>
+                )}
+              </div>
+
               {/* Delivery Address - Only for hardcopy */}
               {bookType === 'hardcopy' && (
                 <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -606,16 +743,28 @@ export function PaymentSection() {
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-600 dark:text-gray-300">
-                  {bookType === 'hardcopy' ? 'Hardcopy Book' : 'eBook (PDF)'}
+                  {bookType === 'hardcopy'
+                    ? `Hardcopy Book x ${effectiveQuantity}`
+                    : 'eBook (PDF)'}
                 </span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  ₵{totalPrice}
+                  ₵{formatPrice(unitPrice)} each
                 </span>
               </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-600 dark:text-gray-300">Subtotal</span>
+                <span className="font-medium text-gray-900 dark:text-white">₵{formatPrice(subtotalPrice)}</span>
+              </div>
+              {hasAppliedDiscount && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-green-700 dark:text-green-400">Discount ({DISCOUNT_PERCENT}%)</span>
+                  <span className="font-medium text-green-700 dark:text-green-400">- ₵{formatPrice(discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
                 <span className="font-bold text-gray-900 dark:text-white">Total</span>
                 <span className="font-bold text-xl text-primary-600 dark:text-primary-400">
-                  ₵{totalPrice} GHS
+                  ₵{formatPrice(totalPrice)} GHS
                 </span>
               </div>
             </div>
@@ -623,7 +772,7 @@ export function PaymentSection() {
             {/* Pay button */}
             <button
               onClick={handlePayment}
-              disabled={paymentState.loading || !email || !name || (bookType === 'hardcopy' && (!phone || !deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.region))}
+              disabled={paymentState.loading || !email || !name || (bookType === 'hardcopy' && (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY || !phone || !deliveryAddress.street || !deliveryAddress.city || !deliveryAddress.region))}
               className="w-full btn-primary text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {paymentState.loading ? (
@@ -649,7 +798,7 @@ export function PaymentSection() {
               ) : (
                 <>
                   <CreditCardIcon className="w-5 h-5" />
-                  Pay ₵{totalPrice} with Paystack
+                  Pay ₵{formatPrice(totalPrice)} with Paystack
                 </>
               )}
             </button>

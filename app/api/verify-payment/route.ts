@@ -36,6 +36,13 @@ type DeliveryAddress = {
   country: string;
 };
 
+const DISCOUNT_PERCENT = 20;
+const VALID_DISCOUNT_CODE = (
+  process.env.DISCOUNT_CODE_20 ||
+  process.env.NEXT_PUBLIC_DISCOUNT_CODE ||
+  'WEALTH20'
+).trim().toUpperCase();
+
 // Generate a time-limited signed URL for downloads
 function generateSignedDownloadUrl(
   email: string,
@@ -84,16 +91,33 @@ function buildCustomerEmailHtml(params: {
   customerName: string;
   reference: string;
   amount: number;
+  quantity: number;
+  discountCode?: string;
+  discountAmount?: number;
   isEbook: boolean;
   customerPhone?: string;
   fullDownloadUrl?: string;
   deliveryAddress?: DeliveryAddress;
 }): string {
-  const { customerName, reference, amount, isEbook, customerPhone, fullDownloadUrl, deliveryAddress } = params;
+  const {
+    customerName,
+    reference,
+    amount,
+    quantity,
+    discountCode,
+    discountAmount,
+    isEbook,
+    customerPhone,
+    fullDownloadUrl,
+    deliveryAddress,
+  } = params;
 
   const detailsRows = [
     `<p style="margin:0;"><strong>Reference:</strong> ${reference}</p>`,
     `<p style="margin:0;"><strong>Amount:</strong> GHS ${amount}</p>`,
+    `<p style="margin:0;"><strong>Quantity:</strong> ${quantity}</p>`,
+    discountCode ? `<p style="margin:0;"><strong>Discount:</strong> ${DISCOUNT_PERCENT}% (${discountCode})</p>` : '',
+    discountCode && typeof discountAmount === 'number' ? `<p style="margin:0;"><strong>You saved:</strong> GHS ${discountAmount.toFixed(2)}</p>` : '',
     `<p style="margin:0;"><strong>Type:</strong> ${isEbook ? 'eBook (PDF)' : 'Hardcopy Book'}</p>`,
     customerPhone ? `<p style="margin:0;"><strong>Phone:</strong> ${customerPhone}</p>` : '',
   ].filter(Boolean).join('');
@@ -152,6 +176,9 @@ function buildCustomerEmailHtml(params: {
 function buildAdminEmailHtml(params: {
   reference: string;
   amount: number;
+  quantity: number;
+  discountCode?: string;
+  discountAmount?: number;
   isEbook: boolean;
   customerName: string;
   customerEmail: string;
@@ -159,7 +186,19 @@ function buildAdminEmailHtml(params: {
   fullDownloadUrl?: string;
   deliveryAddress?: DeliveryAddress;
 }): string {
-  const { reference, amount, isEbook, customerName, customerEmail, customerPhone, fullDownloadUrl, deliveryAddress } = params;
+  const {
+    reference,
+    amount,
+    quantity,
+    discountCode,
+    discountAmount,
+    isEbook,
+    customerName,
+    customerEmail,
+    customerPhone,
+    fullDownloadUrl,
+    deliveryAddress,
+  } = params;
 
   const deliverySection =
     !isEbook && deliveryAddress
@@ -186,6 +225,9 @@ function buildAdminEmailHtml(params: {
       <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:16px 0;">
         <p style="margin:0;"><strong>Reference:</strong> ${reference}</p>
         <p style="margin:0;"><strong>Amount:</strong> GHS ${amount}</p>
+        <p style="margin:0;"><strong>Quantity:</strong> ${quantity}</p>
+        ${discountCode ? `<p style="margin:0;"><strong>Discount:</strong> ${DISCOUNT_PERCENT}% (${discountCode})</p>` : ''}
+        ${discountCode && typeof discountAmount === 'number' ? `<p style="margin:0;"><strong>Discount Amount:</strong> GHS ${discountAmount.toFixed(2)}</p>` : ''}
         <p style="margin:0;"><strong>Type:</strong> ${isEbook ? 'eBook (PDF)' : 'Hardcopy Book'}</p>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:16px 0;">
@@ -208,8 +250,9 @@ export async function POST(request: NextRequest) {
       name,
       phone,
       bookType,
+      quantity,
+      discountCode,
       deliveryAddress,
-      includeBundle 
     } = body;
 
     if (!reference) {
@@ -250,7 +293,7 @@ export async function POST(request: NextRequest) {
       if (process.env.NODE_ENV === 'development') {
         const downloadUrl = generateSignedDownloadUrl(
           email,
-          includeBundle ? 'bundle' : 'book'
+          'book'
         );
         return NextResponse.json({
           success: true,
@@ -291,9 +334,52 @@ export async function POST(request: NextRequest) {
 
     // Payment verified successfully
     const customerEmail = verifyData.data.customer.email;
-    const amount = verifyData.data.amount / 100; // Convert from pesewas to GHS
-    const productType = bookType || (includeBundle ? 'bundle' : 'ebook');
-    const isEbook = productType === 'ebook' || productType === 'bundle';
+    const amountPesewas = verifyData.data.amount;
+    const amount = amountPesewas / 100; // Convert from pesewas to GHS
+    const productType = bookType === 'hardcopy' ? 'hardcopy' : 'ebook';
+    const isEbook = productType === 'ebook';
+    const unitPrice = productType === 'hardcopy'
+      ? Number.parseInt(process.env.NEXT_PUBLIC_HARDCOPY_PRICE || '99', 10)
+      : Number.parseInt(process.env.NEXT_PUBLIC_EBOOK_PRICE || '89', 10);
+
+    let finalQuantity = 1;
+    if (!isEbook) {
+      const requestedQuantity = Number.parseInt(String(quantity ?? '1'), 10);
+      const metadataQuantityRaw = verifyData.data.metadata?.custom_fields?.find(
+        f => f.variable_name === 'quantity'
+      )?.value;
+      const metadataQuantity = Number.parseInt(metadataQuantityRaw || '1', 10);
+      const derivedQuantity = Number.isInteger(amount / unitPrice) ? amount / unitPrice : Number.NaN;
+      if (Number.isInteger(metadataQuantity) && metadataQuantity > 0) {
+        finalQuantity = metadataQuantity;
+      } else if (Number.isInteger(requestedQuantity) && requestedQuantity > 0) {
+        finalQuantity = requestedQuantity;
+      } else if (Number.isInteger(derivedQuantity) && derivedQuantity > 0) {
+        finalQuantity = derivedQuantity;
+      }
+    }
+
+    const requestedDiscountCode = typeof discountCode === 'string' ? discountCode.trim().toUpperCase() : '';
+    const metadataDiscountCode = verifyData.data.metadata?.custom_fields?.find(
+      f => f.variable_name === 'discount_code'
+    )?.value?.trim().toUpperCase() || '';
+    const activeDiscountCode = metadataDiscountCode || requestedDiscountCode;
+    const hasValidDiscount = !!activeDiscountCode && activeDiscountCode === VALID_DISCOUNT_CODE;
+    const discountMultiplier = hasValidDiscount ? (100 - DISCOUNT_PERCENT) / 100 : 1;
+
+    const expectedAmountPesewas = Math.round(unitPrice * finalQuantity * discountMultiplier * 100);
+    if (amountPesewas !== expectedAmountPesewas) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Payment amount mismatch for selected quantity/discount',
+        },
+        { status: 400 }
+      );
+    }
+
+    const subtotalAmount = unitPrice * finalQuantity;
+    const discountAmount = hasValidDiscount ? Number((subtotalAmount - amount).toFixed(2)) : 0;
 
     // Extract customer name from metadata or use provided name
     const customerName = name || 
@@ -317,8 +403,14 @@ export async function POST(request: NextRequest) {
     // Generate signed download URL (only for ebooks)
     const downloadUrl = isEbook ? generateSignedDownloadUrl(
       customerEmail,
-      includeBundle ? 'bundle' : 'book'
+      'book'
     ) : undefined;
+    if (isEbook && !downloadUrl) {
+      return NextResponse.json(
+        { success: false, message: 'Unable to generate secure download link. Please contact support.' },
+        { status: 500 }
+      );
+    }
 
     // Get full URL for email
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kofiasiedumahama.com';
@@ -335,6 +427,9 @@ export async function POST(request: NextRequest) {
         customerName,
         reference,
         amount,
+        quantity: finalQuantity,
+        discountCode: hasValidDiscount ? activeDiscountCode : undefined,
+        discountAmount,
         isEbook,
         customerPhone,
         fullDownloadUrl,
@@ -355,6 +450,9 @@ export async function POST(request: NextRequest) {
       const adminHtml = buildAdminEmailHtml({
         reference,
         amount,
+        quantity: finalQuantity,
+        discountCode: hasValidDiscount ? activeDiscountCode : undefined,
+        discountAmount,
         isEbook,
         customerName,
         customerEmail,
@@ -378,6 +476,9 @@ export async function POST(request: NextRequest) {
       name: customerName,
       phone: customerPhone,
       amount,
+      quantity: finalQuantity,
+      discountCode: hasValidDiscount ? activeDiscountCode : null,
+      discountAmount,
       bookType: productType,
       hasDeliveryAddress: !!parsedDeliveryAddress,
       customerEmailSent,

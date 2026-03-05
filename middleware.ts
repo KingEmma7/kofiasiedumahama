@@ -8,12 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
  * Free research papers remain accessible.
  */
 
-// Patterns for files that should NEVER be publicly accessible
-const BLOCKED_PATTERNS = [
-  /psychology.*sustainable.*wealth/i,
-  /kofi.*asie/i,
-];
-
 // Files that are explicitly allowed (free research papers, etc.)
 const ALLOWED_FILES = [
   'ai-job-security-human-condition.pdf',
@@ -31,13 +25,11 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Block access to paid book files
-    if (BLOCKED_PATTERNS.some(pattern => pattern.test(fileName))) {
-      return NextResponse.json(
-        { error: 'This content requires purchase. Visit the book page to buy.' },
-        { status: 403 }
-      );
-    }
+    // Security default-deny: any non-allowlisted /books file is blocked
+    return NextResponse.json(
+      { error: 'This content requires purchase. Visit the book page to buy.' },
+      { status: 403 }
+    );
   }
 
   return NextResponse.next();

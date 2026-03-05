@@ -39,8 +39,15 @@ function verifyWebhookSignature(
     .createHmac('sha512', secret)
     .update(body)
     .digest('hex');
-  
-  return hash === signature;
+
+  if (signature.length !== hash.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(hash)
+  );
 }
 
 export async function POST(request: NextRequest) {
