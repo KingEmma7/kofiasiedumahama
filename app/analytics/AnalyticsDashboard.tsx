@@ -16,6 +16,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Footer } from '@/components/Footer';
+import { OrdersTable } from './OrdersTable';
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -35,7 +36,7 @@ const StatCard = ({
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+    className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800"
   >
     <div className="flex items-center justify-between mb-4">
       <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
@@ -90,8 +91,17 @@ export function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'day' | 'total'>('day');
+  type ViewMode = 'day' | 'total' | 'last7' | 'last30' | 'this_month';
+  const [viewMode, setViewMode] = useState<ViewMode>('total');
   const [selectedDate, setSelectedDate] = useState(() => formatDate(new Date()));
+
+  const getDateParam = (): string => {
+    if (viewMode === 'total') return 'total';
+    if (viewMode === 'last7') return 'last7';
+    if (viewMode === 'last30') return 'last30';
+    if (viewMode === 'this_month') return 'this_month';
+    return selectedDate;
+  };
 
   const fetchAnalytics = async () => {
     try {
@@ -99,7 +109,7 @@ export function AnalyticsDashboard() {
       const key = new URLSearchParams(globalThis.location?.search ?? '').get('key');
       const params = new URLSearchParams();
       if (key) params.set('key', key);
-      params.set('date', viewMode === 'total' ? 'total' : selectedDate);
+      params.set('date', getDateParam());
       const url = '/api/analytics' + (params.toString() ? `?${params.toString()}` : '');
       const response = await fetch(url);
       const result = await response.json();
@@ -128,10 +138,14 @@ export function AnalyticsDashboard() {
   }, [viewMode, selectedDate]);
 
   const todayString = formatDate(new Date());
-  let viewingLabel = 'All time';
-  if (viewMode !== 'total') {
-    viewingLabel = selectedDate === todayString ? 'Today' : selectedDate;
-  }
+  const viewingLabels: Record<ViewMode, string> = {
+    total: 'All time',
+    last7: 'Last 7 days',
+    last30: 'Last 30 days',
+    this_month: 'This month',
+    day: selectedDate === todayString ? 'Today' : selectedDate,
+  };
+  const viewingLabel = viewingLabels[viewMode];
 
   const shiftDate = (days: number) => {
     const base = new Date(`${selectedDate}T00:00:00`);
@@ -154,9 +168,9 @@ export function AnalyticsDashboard() {
           <div className="flex items-center justify-between h-16">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              className="inline-flex items-center gap-2 py-2 -my-2 px-2 -mx-2 rounded-lg text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors touch-manipulation min-h-[44px]"
             >
-              <ArrowLeftIcon className="w-5 h-5" />
+              <ArrowLeftIcon className="w-5 h-5 shrink-0" />
               <span className="font-medium">Back to Home</span>
             </Link>
             <div className="flex items-center gap-4">
@@ -194,51 +208,50 @@ export function AnalyticsDashboard() {
           <p className="text-gray-600 dark:text-gray-400">
             Track site performance, downloads, purchases, and user engagement
           </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Viewing:</span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">{viewingLabel}</span>
-            <div className="flex items-center gap-2 ml-auto">
-              <button
-                onClick={() => {
-                  setSelectedDate(todayString);
-                  setViewMode('day');
-                }}
-                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                  viewMode === 'day' && selectedDate === todayString
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setViewMode('total')}
-                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                  viewMode === 'total'
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400'
-                }`}
-              >
-                Total
-              </button>
+          <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">Viewing:</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{viewingLabel}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 min-h-[44px]">
+              {(['total', 'last7', 'last30', 'this_month', 'day'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    if (mode === 'day') {
+                      setSelectedDate(todayString);
+                      setViewMode('day');
+                    } else {
+                      setViewMode(mode);
+                    }
+                  }}
+                  className={`min-h-[44px] sm:min-h-0 px-3 py-2.5 sm:py-1.5 text-sm rounded-lg border transition-colors touch-manipulation ${
+                    (mode === 'day' ? viewMode === 'day' && selectedDate === todayString : viewMode === mode)
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                  }`}
+                >
+                  {mode === 'total' ? 'Total' : mode === 'last7' ? '7d' : mode === 'last30' ? '30d' : mode === 'this_month' ? 'Month' : 'Today'}
+                </button>
+              ))}
               <button
                 onClick={() => shiftDate(-1)}
-                disabled={viewMode === 'total'}
-                className="px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={viewMode !== 'day'}
+                className="min-h-[44px] sm:min-h-0 px-3 py-2.5 sm:py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
-                Previous
+                Prev
               </button>
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(event) => handleDateChange(event.target.value)}
-                disabled={viewMode === 'total'}
-                className="px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onChange={(e) => handleDateChange(e.target.value)}
+                disabled={viewMode !== 'day'}
+                className="min-h-[44px] sm:min-h-0 px-3 py-2.5 sm:py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               />
               <button
                 onClick={() => shiftDate(1)}
-                disabled={viewMode === 'total'}
-                className="px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={viewMode !== 'day'}
+                className="min-h-[44px] sm:min-h-0 px-3 py-2.5 sm:py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-primary-400 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
                 Next
               </button>
@@ -268,7 +281,7 @@ export function AnalyticsDashboard() {
         {data && (
           <>
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
               <StatCard
                 title="Page Views"
                 value={data.pageViews.total}
@@ -285,7 +298,7 @@ export function AnalyticsDashboard() {
                 title="Total Purchases"
                 value={data.purchases.total}
                 icon={ShoppingCartIcon}
-                subtitle={`₵${data.purchases.revenue.toLocaleString()} GHS`}
+                subtitle={`₵${data.purchases.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })} GHS`}
               />
               <StatCard
                 title="Newsletter Signups"
@@ -299,7 +312,7 @@ export function AnalyticsDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-8"
+              className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-6 sm:mb-8"
             >
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <EyeIcon className="w-6 h-6 text-primary-600" />
@@ -340,7 +353,7 @@ export function AnalyticsDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-8"
+              className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-6 sm:mb-8"
             >
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <ArrowDownTrayIcon className="w-6 h-6 text-primary-600" />
@@ -383,17 +396,17 @@ export function AnalyticsDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-8"
+              className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-6 sm:mb-8"
             >
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <CurrencyDollarIcon className="w-6 h-6 text-primary-600" />
                 Purchase Analytics
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Revenue</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ₵{data.purchases.revenue.toLocaleString()}
+                    ₵{data.purchases.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })} GHS
                   </p>
                 </div>
                 <div>
@@ -411,17 +424,34 @@ export function AnalyticsDashboard() {
               </div>
             </motion.div>
 
+            {/* Order Management */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800 mb-6 sm:mb-8"
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                <ShoppingCartIcon className="w-6 h-6 text-primary-600" />
+                Order Management
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Filter by date range, status, and search
+              </p>
+              <OrdersTable authKey={new URLSearchParams(globalThis.location?.search ?? '').get('key')} />
+            </motion.div>
+
             {/* Event Tracking */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-800"
+              className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-800"
             >
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
                 Event Tracking
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {data.events.payment_initiated}

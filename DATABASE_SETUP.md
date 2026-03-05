@@ -102,6 +102,10 @@ CREATE TABLE IF NOT EXISTS purchases (
   book_type VARCHAR(50) NOT NULL, -- 'ebook' or 'hardcopy'
   delivery_address JSONB,
   download_url TEXT,
+  quantity INTEGER DEFAULT 1,
+  status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'fulfilled', 'cancelled'
+  fulfilled_at TIMESTAMP WITH TIME ZONE,
+  is_test BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -109,6 +113,8 @@ CREATE TABLE IF NOT EXISTS purchases (
 CREATE INDEX IF NOT EXISTS idx_purchases_reference ON purchases(reference);
 CREATE INDEX IF NOT EXISTS idx_purchases_email ON purchases(customer_email);
 CREATE INDEX IF NOT EXISTS idx_purchases_created_at ON purchases(created_at);
+CREATE INDEX IF NOT EXISTS idx_purchases_status ON purchases(status);
+CREATE INDEX IF NOT EXISTS idx_purchases_is_test ON purchases(is_test);
 ```
 
 4. Click **"Run"** (or press `Ctrl+Enter` / `Cmd+Enter`)

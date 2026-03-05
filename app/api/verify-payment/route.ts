@@ -500,6 +500,8 @@ export async function POST(request: NextRequest) {
             book_type: productType,
             delivery_address: parsedDeliveryAddress || null,
             download_url: fullDownloadUrl || null,
+            quantity: finalQuantity,
+            status: 'pending',
           });
       } catch (dbError) {
         console.error('Failed to save purchase to database:', dbError);
